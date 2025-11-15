@@ -20,6 +20,8 @@ AI提示词生成与管理系统，支持`Linux.do OAuth`和本地用户认证�
 
 ![](imgs/3.gif)
 
+![](imgs/4.gif)
+
 ## 系统架构
 
 ```

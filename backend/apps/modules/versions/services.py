@@ -416,18 +416,32 @@ class VersionService:
                 s = s.replace("%", "%%")
                 return s
             
+            # 处理tags字段（可能是列表，需要转换为逗号分隔的字符串）
+            tags_value = target_version.get("tags", "")
+            if isinstance(tags_value, list):
+                tags_value = ','.join(tags_value)
+            
+            # 处理thinking_points和advice字段（可能是列表，需要转换为JSON字符串）
+            thinking_points_value = target_version.get("thinking_points", "")
+            if isinstance(thinking_points_value, list):
+                thinking_points_value = json.dumps(thinking_points_value, ensure_ascii=False)
+            
+            advice_value = target_version.get("advice", "")
+            if isinstance(advice_value, list):
+                advice_value = json.dumps(advice_value, ensure_ascii=False)
+            
             update_sql = f"""
                 UPDATE prompts SET
                     title = '{escape_sql_string(target_version["title"])}',
                     description = '{escape_sql_string(target_version.get("description", ""))}',
                     requirement_report = '{escape_sql_string(target_version.get("requirement_report", ""))}',
-                    thinking_points = '{escape_sql_string(target_version.get("thinking_points", ""))}',
+                    thinking_points = '{escape_sql_string(thinking_points_value)}',
                     initial_prompt = '{escape_sql_string(target_version.get("initial_prompt", ""))}',
-                    advice = '{escape_sql_string(target_version.get("advice", ""))}',
+                    advice = '{escape_sql_string(advice_value)}',
                     final_prompt = '{escape_sql_string(target_version.get("final_prompt", ""))}',
                     language = '{escape_sql_string(target_version.get("language", "zh"))}',
                     format = '{escape_sql_string(target_version.get("format", "markdown"))}',
-                    tags = '{escape_sql_string(target_version.get("tags", ""))}',
+                    tags = '{escape_sql_string(tags_value)}',
                     system_prompt = '{escape_sql_string(target_version.get("system_prompt", ""))}',
                     conversation_history = '{escape_sql_string(target_version.get("conversation_history", ""))}'
                 WHERE id = {prompt_id}
