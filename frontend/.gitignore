@@ -1,8 +1,8 @@
 .DS_Store
 .claude
 docs/
+# dist
 node_modules
-dist
 pnpm-lock.yaml
 #builtin-providers.json
 
