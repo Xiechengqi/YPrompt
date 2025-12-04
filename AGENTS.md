@@ -1,11 +1,11 @@
 # AGENTS 总览
 
-YPrompt 是一个双端协同的提示词管理系统：前端采用 Vue 3 + Pinia + Tailwind 构建响应式 UI，后端由 Sanic 提供基于 SQLite/MySQL 的 API 服务，并支持 Linux.do OAuth 与本地认证。此文档定义了各角色 Agent 的工作范围、关键入口以及协作方式，便于后续二次开发快速分工。
+YPrompt 是一个双端协同的提示词管理系统：前端采用 Vue 3 + Pinia + Tailwind 构建响应式 UI，后端由 Sanic 提供基于 SQLite 的 API 服务，支持本地认证。此文档定义了各角色 Agent 的工作范围、关键入口以及协作方式，便于后续二次开发快速分工。
 
 ## 项目快照
 - **目录结构**：`frontend/` 承载 Vue 应用（模块化组件 + composables）；`backend/` 承载 Sanic 应用（apps/modules/* 蓝图自动注册）；`data/` 保存 SQLite、日志与缓存。
 - **运行链路**：浏览器命中 `frontend/src/main.ts` 配置的路由和守卫，认证后通过 `frontend/src/services/apiService.ts` 调用后端 REST 接口，后端在 `backend/apps/__init__.py` 中初始化数据库/JWT/蓝图并暴露 `/api/**`。
-- **核心功能**：AI 引导生成、提示词优化、个人库与版本管理、双认证、双数据库、响应式布局。
+- **核心功能**：AI 引导生成、提示词优化、个人库与版本管理、本地认证、SQLite 数据库、响应式布局。
 
 ## Agent 分工
 
@@ -26,9 +26,9 @@ YPrompt 是一个双端协同的提示词管理系统：前端采用 Vue 3 + Pin
   - 维护 Sanic 应用生命周期（`backend/apps/__init__.py`），包括日志、CORS、JWT、数据库、蓝图自动注册。
   - 编写/维护业务模块（`backend/apps/modules/*`），每个模块包含 `models.py`（OpenAPI 模型）、`services.py`、`views.py`。
   - 维护工具层（`backend/apps/utils/`）：数据库适配器、JWT、OAuth、密码工具、认证中间件等。
-  - 保障配置（`backend/config/*.py`）与迁移脚本（`backend/migrations/*.sql`）正确，覆盖 SQLite 自动初始化、管理员同步、MySQL 配置。
+  - 保障配置（`backend/config/*.py`）与迁移脚本（`backend/migrations/*.sql`）正确，覆盖 SQLite 自动初始化、管理员同步。
 - **核心能力点**：
-  1. **双数据库**：`db_utils.py` + `db_adapter.py` 统一接口，SQLite 首次启动自动建库并创建/同步 admin 账号；MySQL 通过 ezmysql 连接池。
+  1. **SQLite 数据库**：`db_utils.py` + `db_adapter.py` 统一接口，SQLite 首次启动自动建库并创建/同步 admin 账号。
   2. **双认证**：`apps/modules/auth/views.py` 同时提供 Linux.do OAuth `/api/auth/linux-do/login` 与本地 `/api/auth/local/login`/`register` 入口；`LinuxDoOAuth` & `PasswordUtil` & `JWTUtil` 提供支持。
   3. **提示词/版本/标签** 模块提供 REST API（`/api/prompts`, `/api/versions`, `/api/tags`）；`prompt_rules` 模块负责系统内置规则管理。
 - **常用命令**：`python3 -m venv venv && source venv/bin/activate`、`pip install -r requirements.txt`、`python run.py`（可加 `--workers=4`）。
@@ -48,12 +48,11 @@ YPrompt 是一个双端协同的提示词管理系统：前端采用 Vue 3 + Pin
 
 ## 快速启动备忘
 1. **前端**：在 `frontend/` 运行 `npm install && npm run dev`，确保 `.env.local` 中的 `VITE_API_BASE_URL` 指向运行中的后端；必要时复制 `builtin-providers.example.json`。
-2. **后端**：在 `backend/` 中安装依赖并执行 `python run.py`；默认使用 `../data/yprompt.db`，首次启动会自动创建表结构与管理员账号；需要 MySQL 时在 `config/base.py` 或环境变量中切换。
+2. **后端**：在 `backend/` 中安装依赖并执行 `python run.py`；默认使用 `../data/yprompt.db`，首次启动会自动创建表结构与管理员账号。
 3. **联调**：保证浏览器可访问 `http://localhost:5173`，后端默认 `http://localhost:8888`；Swagger 文档在 `/docs`，OpenAPI JSON 在 `/openapi.json`。
 
 ## 后续开发提示
 - 规划中的模块（如 Playground 扩展、多模型对比）已在目录中占位，可由前端 Agent 接手实现 UI + 调用；后端 Agent 需要配套 API。
-- MySQL 初始化脚本仍需补充/验证，若启用 MySQL 需先编写/执行迁移。
 - 考虑在后续迭代中加入邮箱验证、二次验证、权限系统、Redis 缓存及数据备份机制。
 
 > 使用本文档快速定位职责、入口和启动方式，确保多 Agent 协作时对系统整体有一致的 mental model。

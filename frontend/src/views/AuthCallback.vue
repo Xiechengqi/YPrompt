@@ -21,41 +21,20 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useAuthStore } from '@/stores/authStore'
+import { useRouter } from 'vue-router'
 
 const router = useRouter()
-const route = useRoute()
-const authStore = useAuthStore()
 
 const isProcessing = ref(true)
 const error = ref('')
 
 const processCallback = async () => {
-  try {
-    const code = route.query.code as string
-
-    if (!code) {
-      error.value = '未获取到授权码，请重新登录'
-      isProcessing.value = false
-      return
-    }
-
-    // 使用 Linux.do OAuth 登录
-    const success = await authStore.loginWithLinuxDo(code)
-
-    if (success) {
-      // 登录成功，跳转到主页
-      router.push('/')
-    } else {
-      error.value = '登录失败，请重试'
-      isProcessing.value = false
-    }
-  } catch (err) {
-    console.error('OAuth callback error:', err)
-    error.value = '登录过程中发生错误，请重试'
-    isProcessing.value = false
-  }
+  // OAuth 回调已不再使用，直接跳转到登录页
+  error.value = 'OAuth 回调功能已移除，请使用用户名密码登录'
+  isProcessing.value = false
+  setTimeout(() => {
+    router.push('/login')
+  }, 2000)
 }
 
 const goToLogin = () => {

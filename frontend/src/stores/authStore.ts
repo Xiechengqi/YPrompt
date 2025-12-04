@@ -11,7 +11,7 @@ export interface User {
   name: string
   avatar: string
   email?: string
-  auth_type: 'linux_do' | 'local'
+  auth_type: 'local'
   is_admin: number
   last_login_time?: string
 }
@@ -61,45 +61,6 @@ export const useAuthStore = defineStore('auth', () => {
         // 解析失败，清除无效数据
         localStorage.removeItem('yprompt_user')
       }
-    }
-  }
-  
-  /**
-   * 通过Linux.do OAuth code登录
-   */
-  const loginWithLinuxDo = async (code: string): Promise<boolean> => {
-    isLoading.value = true
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/linux-do/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code }),
-      })
-      
-      const result = await response.json()
-      
-      if (result.code === 200 && result.data) {
-        setToken(result.data.token)
-        setUser(result.data.user)
-        
-        // 登录成功后，强制重新加载云端提示词配置
-        try {
-          const { promptConfigManager } = await import('@/config/prompts')
-          await promptConfigManager.forceReloadFromCloud()
-        } catch (error) {
-          console.error('登录后加载云端配置失败:', error)
-        }
-        
-        return true
-      } else {
-        return false
-      }
-    } catch (error) {
-      return false
-    } finally {
-      isLoading.value = false
     }
   }
   
@@ -174,9 +135,6 @@ export const useAuthStore = defineStore('auth', () => {
    * 获取认证配置
    */
   const getAuthConfig = async (): Promise<{
-    linux_do_enabled: boolean
-    linux_do_client_id: string
-    linux_do_redirect_uri: string
     local_auth_enabled: boolean
     registration_enabled: boolean
   } | null> => {
@@ -325,7 +283,6 @@ export const useAuthStore = defineStore('auth', () => {
     // 方法
     setToken,
     setUser,
-    loginWithLinuxDo,
     loginWithPassword,
     register,
     getAuthConfig,

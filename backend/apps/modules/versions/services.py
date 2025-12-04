@@ -15,7 +15,7 @@ class VersionService:
         初始化版本服务
         
         Args:
-            db: 数据库连接对象(ezmysql ConnectionAsync)
+            db: 数据库连接对象(SQLite适配器)
         """
         self.db = db
     

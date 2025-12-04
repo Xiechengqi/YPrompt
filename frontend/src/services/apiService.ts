@@ -38,7 +38,34 @@ async function request<T = any>(
     headers,
   })
   
-  const result = await response.json()
+  // 检查响应状态
+  if (!response.ok) {
+    // 尝试解析JSON错误响应
+    let errorMessage = '请求失败'
+    try {
+      const errorData = await response.json()
+      errorMessage = errorData.message || errorMessage
+      
+      // 如果token过期，清除本地token
+      if (errorData.code === 401) {
+        localStorage.removeItem('yprompt_token')
+        localStorage.removeItem('yprompt_user')
+        throw new Error('未授权，请重新登录')
+      }
+    } catch (parseError) {
+      // 如果不是JSON格式，使用状态文本
+      errorMessage = `请求失败: ${response.status} ${response.statusText}`
+    }
+    throw new Error(errorMessage)
+  }
+  
+  // 解析JSON响应
+  let result
+  try {
+    result = await response.json()
+  } catch (parseError) {
+    throw new Error(`响应解析失败: ${parseError instanceof Error ? parseError.message : '未知错误'}`)
+  }
   
   // 如果token过期，清除本地token
   if (result.code === 401) {

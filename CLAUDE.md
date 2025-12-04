@@ -2,14 +2,14 @@
 
 ## 项目概述
 
-YPrompt 是一个完整的提示词管理系统，包含前端（Vue 3）和后端（Sanic），提供基于 AI 对话的提示词生成、优化、版本管理和个人提示词库功能。系统支持双认证方式（Linux.do OAuth + 本地用户名密码）、双数据库（SQLite + MySQL），支持桌面端和移动端响应式布局。
+YPrompt 是一个完整的提示词管理系统，包含前端（Vue 3）和后端（Sanic），提供基于 AI 对话的提示词生成、优化、版本管理和个人提示词库功能。系统支持本地用户名密码认证、SQLite 数据库，支持桌面端和移动端响应式布局。
 
 **主要功能**:
 - 🤖 AI 引导式需求收集与提示词生成
 - 📝 提示词优化与质量分析（系统提示词 + 用户提示词）
 - 📚 个人提示词库管理（收藏、标签、版本控制）
 - 🔐 双认证方式：Linux.do OAuth 2.0 + 本地用户名密码
-- 💾 双数据库支持：SQLite（默认）+ MySQL（可选）
+- 💾 SQLite 数据库（默认，零配置）
 - 📱 响应式设计（桌面端侧边栏 + 移动端底部导航）
 
 ## 技术栈
@@ -25,7 +25,7 @@ YPrompt 是一个完整的提示词管理系统，包含前端（Vue 3）和后�
 
 ### 后端 (backend/)
 - **框架**: Sanic 23.12.1 (异步高性能)
-- **数据库**: SQLite 3（默认，aiosqlite）/ MySQL 8.0+（可选，ezmysql）
+- **数据库**: SQLite 3（aiosqlite）
 - **认证**: Linux.do OAuth 2.0 + 本地认证 + JWT (PyJWT 2.8.0)
 - **密码加密**: bcrypt 4.1.2
 - **API文档**: Sanic-Ext 23.12.0 (OpenAPI/Swagger)
@@ -103,7 +103,7 @@ YPrompt/
     │   │   └── versions/           # 版本管理模块
     │   └── utils/                  # 工具类
     │       ├── auth_middleware.py  # JWT认证中间件
-    │       ├── db_adapter.py       # 数据库适配器（SQLite/MySQL）
+    │       ├── db_adapter.py       # 数据库适配器（SQLite）
     │       ├── db_utils.py         # 数据库连接管理
     │       ├── linux_do_oauth.py   # Linux.do OAuth封装
     │       ├── password_utils.py   # 密码工具（加密、验证）
@@ -116,7 +116,6 @@ YPrompt/
     │   └── settings.py             # 配置加载器
     ├── migrations/                 # 数据库迁移脚本
     │   ├── init_sqlite.sql        # SQLite初始化脚本
-    │   └── init_mysql.sql         # MySQL初始化脚本
     ├── logs/                       # 日志目录
     ├── requirements.txt            # Python依赖
     └── run.py                      # 启动入口
@@ -415,7 +414,7 @@ Controller (views.py)  ← API路由和请求处理
     ↓
 Service (services.py)  ← 业务逻辑
     ↓
-Model (ezmysql)       ← 数据访问
+Model (SQLite)       ← 数据访问
 ```
 
 ### 蓝图自动发现
@@ -738,7 +737,7 @@ python run.py
 
 ### 后端
 - **日志**: `logs/info.log`, `logs/error.log`
-- **数据库工具**: MySQL Workbench / Navicat
+- **数据库工具**: SQLite Browser / DB Browser for SQLite
 - **API测试**: Swagger UI / Postman
 
 ### 前端
@@ -795,7 +794,7 @@ python run.py
 
 **基础设施**:
 - ✅ **认证系统**: Linux.do OAuth + 本地认证（双支持）
-- ✅ **数据库**: SQLite（默认）+ MySQL（可选）
+- ✅ **数据库**: SQLite（默认）
 - ✅ **版本管理**: 语义化版本 + 完整快照 + 回滚
 - ✅ **响应式布局**: 桌面端侧边栏 + 移动端底部导航
 - ✅ **AI服务**: OpenAI + Anthropic + Google（多提供商）

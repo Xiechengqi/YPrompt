@@ -13,32 +13,9 @@ pip install -r requirements.txt
 
 ### 2. 配置数据库
 
-**默认使用 SQLite（推荐，零配置）**
+**使用 SQLite（默认，零配置）**
 
 默认配置已经设置为 SQLite，无需任何修改，启动后会自动创建 `data/yprompt.db` 数据库文件并初始化表结构。
-
-**切换到 MySQL（可选）**
-
-如果需要使用 MySQL，修改 `config/dev.py`：
-
-```python
-# 数据库类型
-DB_TYPE = 'mysql'  # 改为 mysql
-
-# MySQL配置
-DB_HOST = 'localhost'
-DB_USER = 'root'
-DB_PASS = 'your_password'
-DB_NAME = 'yprompt'
-DB_PORT = 3306
-```
-
-然后手动创建数据库并导入初始化脚本：
-
-```bash
-mysql -u root -p -e "CREATE DATABASE yprompt CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-mysql -u root -p yprompt < migrations/init_database.sql
-```
 
 ### 3. 启动服务
 
@@ -137,11 +114,6 @@ DB_NAME = 'yprompt'
 DB_PORT = 3306
 ```
 
-**手动初始化**：
-
-```bash
-mysql -u root -p < migrations/init_database.sql
-```
 
 ## 配置文件
 
@@ -166,7 +138,6 @@ yprompt-backend/
 │       └── password_utils.py  # 密码工具
 ├── config/                # 配置文件
 ├── migrations/            # 数据库脚本
-│   ├── init_database.sql # MySQL初始化脚本
 │   └── init_sqlite.sql   # SQLite初始化脚本（自动）
 ├── data/                  # 数据目录（SQLite）
 │   └── yprompt.db        # SQLite数据库文件
@@ -182,7 +153,6 @@ yprompt-backend/
 主要 API 端点：
 
 **认证相关**：
-- `POST /api/auth/linux-do/login` - Linux.do OAuth 登录
 - `POST /api/auth/local/login` - 本地用户名密码登录
 - `POST /api/auth/local/register` - 注册本地用户
 - `POST /api/auth/refresh` - 刷新 Token
@@ -214,7 +184,7 @@ python run.py
 
 如果修改了数据库结构，需要：
 
-1. 更新 `migrations/init_database.sql` (MySQL)
+1. 更新 `migrations/init_sqlite.sql`
 2. 更新 `migrations/init_sqlite.sql` (SQLite)
 3. 删除现有数据库重新初始化，或手动执行迁移语句
 
@@ -223,7 +193,7 @@ python run.py
 只需修改 `config/dev.py` 中的 `DB_TYPE`，无需修改代码：
 
 ```python
-DB_TYPE = 'sqlite'  # 或 'mysql'
+DB_TYPE = 'sqlite'
 ```
 
 ## 生产部署
@@ -238,11 +208,6 @@ import os
 
 DB_TYPE = os.getenv('DB_TYPE', 'sqlite')
 SECRET_KEY = os.getenv('SECRET_KEY')  # 必须修改
-LINUX_DO_CLIENT_SECRET = os.getenv('LINUX_DO_CLIENT_SECRET')
-
-# 如果使用MySQL
-DB_HOST = os.getenv('DB_HOST')
-DB_PASS = os.getenv('DB_PASS')
 ```
 
 ### 2. 启动生产服务
@@ -278,8 +243,6 @@ A: 直接复制 `data/yprompt.db` 文件即可
 ### Q: 如何重置数据库？
 A: 删除 `data/yprompt.db` 文件，重启服务会自动重新初始化
 
-### Q: 如何切换到 MySQL？
-A: 修改 `config/dev.py` 的 `DB_TYPE = 'mysql'` 并配置数据库连接信息
 
 ### Q: 忘记管理员密码怎么办？
 A: 
@@ -293,7 +256,7 @@ A: 首次启动前修改 `config/dev.py` 中的 `DEFAULT_ADMIN_USERNAME`、`DEFA
 ## 技术栈
 
 - **Web 框架**: Sanic 23.12.1 (异步)
-- **数据库**: SQLite (默认) / MySQL
+- **数据库**: SQLite
 - **认证**: JWT + bcrypt
 - **文档**: OpenAPI/Swagger
 

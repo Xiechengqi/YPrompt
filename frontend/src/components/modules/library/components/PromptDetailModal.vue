@@ -550,6 +550,18 @@ const handleSaveEdit = async () => {
       })
     })
 
+    // 检查响应状态
+    if (!response.ok) {
+      let errorMessage = '保存失败'
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.message || errorMessage
+      } catch {
+        errorMessage = `保存失败: ${response.status} ${response.statusText}`
+      }
+      throw new Error(errorMessage)
+    }
+
     const result = await response.json()
     if (result.code === 200) {
       alert('保存成功')

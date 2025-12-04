@@ -298,11 +298,6 @@ const searchWithKeyword = (keyword: string) => {
   currentPage.value = 1
 }
 
-// 暴露方法
-defineExpose({
-  searchWithKeyword
-})
-
 // UI状态
 const showActionMenu = ref<Record<number, boolean>>({})
 const showDetailModal = ref(false)
@@ -337,6 +332,20 @@ const loadPrompts = async () => {
         'Authorization': `Bearer ${token}`
       }
     })
+
+    // 检查响应状态
+    if (!response.ok) {
+      // 尝试解析JSON错误响应
+      let errorMessage = '加载失败'
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.message || errorMessage
+      } catch {
+        // 如果不是JSON格式，使用状态文本
+        errorMessage = `加载失败: ${response.status} ${response.statusText}`
+      }
+      throw new Error(errorMessage)
+    }
 
     const result = await response.json()
     if (result.code === 200) {
@@ -398,6 +407,18 @@ const handleViewPrompt = async (prompt: Prompt) => {
         'Authorization': `Bearer ${token}`
       }
     })
+
+    // 检查响应状态
+    if (!response.ok) {
+      let errorMessage = '获取详情失败'
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.message || errorMessage
+      } catch {
+        errorMessage = `获取详情失败: ${response.status} ${response.statusText}`
+      }
+      throw new Error(errorMessage)
+    }
 
     const result = await response.json()
     if (result.code === 200) {
@@ -513,6 +534,18 @@ const handleDeletePrompt = async (prompt: Prompt) => {
       }
     })
 
+    // 检查响应状态
+    if (!response.ok) {
+      let errorMessage = '删除失败'
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.message || errorMessage
+      } catch {
+        errorMessage = `删除失败: ${response.status} ${response.statusText}`
+      }
+      throw new Error(errorMessage)
+    }
+
     const result = await response.json()
     if (result.code === 200) {
       alert('删除成功')
@@ -543,6 +576,12 @@ document.addEventListener('click', (e) => {
   if (!(e.target as Element).closest('.relative.group')) {
     showActionMenu.value = {}
   }
+})
+
+// 暴露方法给父组件
+defineExpose({
+  searchWithKeyword,
+  loadPrompts
 })
 
 // 组件挂载时加载数据

@@ -15,18 +15,6 @@
 
       <!-- 登录表单 -->
       <div v-else class="login-content">
-        <!-- Linux.do OAuth 登录 -->
-        <div v-if="authConfig.linux_do_enabled" class="login-section">
-          <button @click="loginWithLinuxDo" class="btn btn-primary btn-linux-do">
-            使用 Linux.do 登录
-          </button>
-        </div>
-
-        <!-- 分隔线（当两种认证方式都存在时显示） -->
-        <div v-if="authConfig.linux_do_enabled && authConfig.local_auth_enabled" class="divider">
-          <span>或</span>
-        </div>
-
         <!-- 本地账号密码登录 -->
         <div v-if="authConfig.local_auth_enabled" class="login-section">
           <form @submit.prevent="handleLocalLogin" class="login-form">
@@ -150,9 +138,6 @@ const authStore = useAuthStore()
 
 // 认证配置
 const authConfig = ref({
-  linux_do_enabled: false,
-  linux_do_client_id: '',
-  linux_do_redirect_uri: '',
   local_auth_enabled: true,
   registration_enabled: true
 })
@@ -187,19 +172,6 @@ const fetchAuthConfig = async () => {
   } finally {
     isLoading.value = false
   }
-}
-
-// Linux.do OAuth 登录
-const loginWithLinuxDo = () => {
-  if (!authConfig.value.linux_do_enabled) {
-    errorMessage.value = 'Linux.do OAuth 未配置'
-    return
-  }
-
-  // 使用后端返回的配置构建授权URL
-  const authUrl = `https://connect.linux.do/oauth2/authorize?client_id=${authConfig.value.linux_do_client_id}&redirect_uri=${authConfig.value.linux_do_redirect_uri}&response_type=code&scope=user`
-  
-  window.location.href = authUrl
 }
 
 // 本地账号密码登录

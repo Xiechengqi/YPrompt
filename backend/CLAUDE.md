@@ -2,12 +2,12 @@
 
 ## 项目概述
 
-YPrompt Backend 是一个基于 Sanic 的高性能异步后端服务，为 YPrompt 提示词生成器提供完整的数据支持。采用**零配置启动**设计，默认使用SQLite + 本地认证，无需任何配置即可快速部署。同时支持Linux.do OAuth和MySQL，灵活适应公共和私有部署场景。
+YPrompt Backend 是一个基于 Sanic 的高性能异步后端服务，为 YPrompt 提示词生成器提供完整的数据支持。采用**零配置启动**设计，默认使用SQLite + 本地认证，无需任何配置即可快速部署。
 
 **核心特性**:
 - ✅ **零配置启动**: 默认SQLite + 本地认证，自动初始化数据库
 - 🔐 **双认证支持**: Linux.do OAuth 2.0 + 本地用户名密码
-- 💾 **双数据库支持**: SQLite（默认）+ MySQL（可选）
+- 💾 **SQLite 数据库**: 默认数据库，零配置启动
 - 🔒 **安全加密**: bcrypt密码哈希（12轮salt）
 - 📝 **完整CRUD**: 提示词增删改查 + 版本管理
 - 🏷️ **标签系统**: 自动分类和统计
@@ -23,10 +23,8 @@ YPrompt Backend 是一个基于 Sanic 的高性能异步后端服务，为 YProm
 - **异步运行时**: uvloop 0.19.0
 
 ### 数据层
-- **数据库**: SQLite 3 (默认) / MySQL 8.0+ (可选)
+- **数据库**: SQLite 3
 - **SQLite驱动**: aiosqlite 0.19.0
-- **MySQL ORM**: ezmysql 0.9.0 (轻量级异步ORM)
-- **MySQL驱动**: PyMySQL 1.1.0 + aiomysql 0.2.0
 
 ### 认证与安全
 - **JWT**: PyJWT 2.8.0
@@ -35,7 +33,7 @@ YPrompt Backend 是一个基于 Sanic 的高性能异步后端服务，为 YProm
 - **加密**: cryptography 41.0.7
 
 ### 工具库
-- **HTTP客户端**: requests 2.31.0 (Linux.do API) + httpx 0.25.2 (异步)
+- **HTTP客户端**: requests 2.31.0 + httpx 0.25.2 (异步)
 - **JSON**: ujson 5.9.0 (高性能)
 - **配置管理**: python-dotenv 1.0.0
 
@@ -72,7 +70,7 @@ backend/
 │   │
 │   └── utils/                # 工具类
 │       ├── auth_middleware.py  # JWT认证中间件
-│       ├── db_adapter.py       # 数据库适配器（SQLite/MySQL）
+    │       ├── db_adapter.py       # 数据库适配器（SQLite）
 │       ├── db_utils.py         # 数据库连接管理
 │       ├── linux_do_oauth.py   # Linux.do OAuth封装
 │       ├── password_utils.py   # 密码工具（验证、哈希）
@@ -673,7 +671,7 @@ Controller (views.py)  ← API路由和请求处理
     ↓
 Service (services.py)  ← 业务逻辑
     ↓
-Model (ezmysql)       ← 数据访问
+Model (SQLite)       ← 数据访问
 ```
 
 ### 蓝图自动发现机制
@@ -927,13 +925,12 @@ class Config:
     # ==========================================
     # 数据库配置
     # ==========================================
-    # 数据库类型: 'sqlite' 或 'mysql'
+    # 数据库类型: 'sqlite'
     DB_TYPE = 'sqlite'  # 默认使用SQLite
     
     # SQLite配置
     SQLITE_DB_PATH = 'data/yprompt.db'
     
-    # MySQL配置（如果使用MySQL，将DB_TYPE改为'mysql'并配置以下参数）
     DB_HOST = 'localhost'
     DB_USER = 'root'
     DB_PASS = ''
@@ -978,7 +975,7 @@ import os
 
 class Config:
     # 数据库配置
-    DB_TYPE = 'sqlite'  # 或 'mysql'
+    DB_TYPE = 'sqlite'
     SQLITE_DB_PATH = 'data/yprompt.db'
     
     # JWT配置（使用环境变量）
@@ -987,7 +984,7 @@ class Config:
     # Linux.do OAuth配置
     LINUX_DO_CLIENT_ID = os.getenv('LINUX_DO_CLIENT_ID', '')
     LINUX_DO_CLIENT_SECRET = os.getenv('LINUX_DO_CLIENT_SECRET', '')
-    LINUX_DO_REDIRECT_URI = os.getenv('LINUX_DO_REDIRECT_URI', 'https://yourdomain.com/auth/callback')
+    LINUX_DO_REDIRECT_URI = os.getenv('LINUX_DO_REDIRECT_URI', 'http://localhost:8888/auth/callback')
     
     # 默认管理员账号
     DEFAULT_ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
@@ -1020,41 +1017,21 @@ rm data/yprompt.db
 python run.py
 ```
 
-#### MySQL（可选）
-
-如果使用 MySQL，需要手动初始化：
-
-```bash
-# 1. 创建数据库
-mysql -u root -p -e "CREATE DATABASE yprompt CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-
-# 2. 导入初始化脚本（需要自行转换SQLite脚本为MySQL语法）
-# MySQL和SQLite语法差异较大，建议使用SQLite
-```
-
 ### 数据库配置说明
 
-#### 切换数据库类型
+#### SQLite 配置
 
 ```python
 # config/dev.py
 
-# 使用SQLite（推荐）
+# 使用SQLite（默认）
 DB_TYPE = 'sqlite'
 SQLITE_DB_PATH = 'data/yprompt.db'
-
-# 使用MySQL
-DB_TYPE = 'mysql'
-DB_HOST = 'localhost'
-DB_USER = 'root'
-DB_PASS = 'password'
-DB_NAME = 'yprompt'
-DB_PORT = 3306
 ```
 
 #### 数据库适配器
 
-系统使用适配器模式支持双数据库，通过 `db_adapter.py` 统一接口：
+系统使用适配器模式，通过 `db_adapter.py` 统一接口：
 
 ```python
 # apps/utils/db_adapter.py
@@ -1073,19 +1050,15 @@ class SQLiteAdapter(DatabaseAdapter):
     # 自动初始化数据库和表结构
     # 使用 ? 占位符
 
-class MySQLAdapter(DatabaseAdapter):
-    """MySQL实现"""
-    # 使用 ezmysql
-    # 使用连接池
 ```
 
 #### Linux.do OAuth 配置
 
 1. 访问 https://connect.linux.do 创建应用
 2. 获取 `Client ID` 和 `Client Secret`
-3. 配置回调地址：
-   - 开发环境: `http://localhost:5173/auth/callback`
-   - 生产环境: `https://yourdomain.com/auth/callback`
+3. 配置回调地址（格式: `http://<IP>:<PORT>/auth/callback`）：
+   - 开发环境: `http://localhost:8888/auth/callback`
+   - 生产环境: `http://<服务器IP>:<端口>/auth/callback`（例如: `http://192.168.1.100:80/auth/callback`）
 4. 填写到 `config/dev.py` 或环境变量
 
 **重要**：必须在 `config/settings.py` 中添加配置项，否则无法加载：
@@ -1247,11 +1220,9 @@ UPDATE users SET linux_do_id = open_id WHERE linux_do_id IS NULL;
 6. 更新JWT生成逻辑（使用`linux_do_id`）
 7. 前端配合调整
 
-### 2. 数据库改造 - 支持 SQLite + MySQL
+### 2. 数据库改造 - SQLite 支持
 
-**当前方案**: 仅支持 MySQL (ezmysql)
-
-**目标方案**: 同时支持 SQLite 和 MySQL，默认 SQLite
+**当前方案**: 支持 SQLite，零配置启动
 
 #### 改造方案
 
@@ -1306,29 +1277,6 @@ class DatabaseAdapter(ABC):
         pass
 
 
-class MySQLAdapter(DatabaseAdapter):
-    """MySQL适配器 (使用ezmysql)"""
-    
-    def __init__(self, config):
-        from ezmysql import ConnectionAsync
-        self.db = ConnectionAsync(
-            config['host'],
-            config['database'],
-            config['user'],
-            config['password'],
-            minsize=3,
-            maxsize=10,
-            pool_recycle=3600,
-            autocommit=True,
-            charset='utf8mb4'
-        )
-    
-    async def get(self, sql, params=None):
-        if params:
-            return await self.db.get(sql, params)
-        return await self.db.get(sql)
-    
-    # 实现其他方法...
 
 
 class SQLiteAdapter(DatabaseAdapter):
@@ -1385,7 +1333,7 @@ class SQLiteAdapter(DatabaseAdapter):
 ```python
 # apps/utils/db_utils.py
 
-from apps.utils.db_adapter import MySQLAdapter, SQLiteAdapter
+from apps.utils.db_adapter import SQLiteAdapter
 
 class DB:
     def __init__(self, app):
@@ -1405,13 +1353,7 @@ class DB:
                 })
                 await adapter.connect()
             else:
-                # MySQL配置
-                adapter = MySQLAdapter({
-                    'host': app.config['DB_HOST'],
-                    'database': app.config['DB_NAME'],
-                    'user': app.config['DB_USER'],
-                    'password': app.config['DB_PASS']
-                })
+                raise ValueError(f"不支持的数据库类型: {db_type}，仅支持 'sqlite'")
             
             app.ctx.db = adapter
             logger.info(f"✅ 数据库连接成功: {db_type}")
@@ -1427,18 +1369,11 @@ class DB:
 ```python
 # config/base.py
 
-# 数据库类型: sqlite 或 mysql
+# 数据库类型: sqlite
 DB_TYPE = 'sqlite'
 
 # SQLite配置
 SQLITE_DB_PATH = '../data/yprompt.db'
-
-# MySQL配置（保持现有）
-DB_HOST = 'localhost'
-DB_USER = 'root'
-DB_PASS = ''
-DB_NAME = 'yprompt'
-DB_PORT = 3306
 ```
 
 **4. SQLite初始化脚本**
@@ -1510,18 +1445,11 @@ END;
 aiosqlite==0.19.0          # SQLite异步支持
 
 # 保留
-ezmysql==0.9.0             # MySQL支持
-PyMySQL==1.1.0
-aiomysql==0.2.0
 ```
 
 #### SQL兼容性注意事项
 
 1. **数据类型映射**:
-   - MySQL `TINYINT(1)` → SQLite `INTEGER`
-   - MySQL `INT(11)` → SQLite `INTEGER`
-   - MySQL `VARCHAR(N)` → SQLite `VARCHAR(N)` 或 `TEXT`
-   - MySQL `DATETIME` → SQLite `DATETIME` 或 `TEXT`
 
 2. **自动更新时间**:
    - MySQL: `ON UPDATE CURRENT_TIMESTAMP`
@@ -1624,7 +1552,6 @@ await db.get(sql, [user_id])
 - **根目录文档**: `/CLAUDE.md` - 前后端统一文档
 - **前端文档**: `/yprompt/CLAUDE.md` - 前端详细文档
 - **Sanic文档**: https://sanic.dev
-- **ezmysql文档**: https://github.com/veelion/ezmysql
 
 ## 联系方式
 

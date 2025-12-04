@@ -216,8 +216,10 @@ const handleCreatePrompt = async (formData: {
       alert('提示词创建成功！')
       showCreateDialog.value = false
       newPromptContent.value = ''
-      // 刷新列表（通过发出事件或重新加载）
-      window.location.reload()
+      // 刷新列表（调用子组件的loadPrompts方法）
+      if (promptListRef.value) {
+        await promptListRef.value.loadPrompts()
+      }
     } else {
       throw new Error(result.message || '创建失败')
     }

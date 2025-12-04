@@ -1,7 +1,7 @@
 """
 认证服务类
 处理用户认证相关的业务逻辑
-支持: Linux.do OAuth + 本地用户名密码认证
+支持: 本地用户名密码认证
 """
 import datetime
 from sanic.log import logger
@@ -16,77 +16,9 @@ class AuthService:
         初始化认证服务
         
         Args:
-            db: 数据库连接对象(ezmysql ConnectionAsync)
+            db: 数据库连接对象(SQLite适配器)
         """
         self.db = db
-    
-    async def create_or_update_user_from_linux_do(self, user_info):
-        """
-        从Linux.do用户信息创建或更新用户
-        
-        Args:
-            user_info: Linux.do用户信息字典,包含:
-                - id: Linux.do用户ID (唯一标识)
-                - username: 论坛用户名
-                - name: 论坛用户昵称
-                - avatar_template: 用户头像模板URL
-                - active: 账号活跃状态
-                - trust_level: 信任等级 (0-4)
-                
-        Returns:
-            dict: 用户信息
-        """
-        linux_do_id = str(user_info.get('id'))
-        
-        if not linux_do_id:
-            raise ValueError('用户信息中缺少id字段')
-        
-        try:
-            # 1. 查询用户是否存在
-            sql = "SELECT * FROM users WHERE linux_do_id = ?"
-            user = await self.db.get(sql, [linux_do_id])
-            
-            current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            
-            # 处理头像URL (支持多种尺寸)
-            avatar_template = user_info.get('avatar_template', '')
-            avatar = avatar_template.replace('{size}', '240') if avatar_template and '{size}' in avatar_template else avatar_template
-            
-            if user:
-                # 2. 用户存在,更新用户信息和登录时间
-                update_sql = f"""
-                    UPDATE users SET 
-                        name = '{user_info.get("name", user_info.get("username", "未知用户"))}',
-                        linux_do_username = '{user_info.get("username", "")}',
-                        avatar = '{avatar}',
-                        last_login_time = '{current_time}'
-                    WHERE linux_do_id = '{linux_do_id}'
-                """
-                
-                await self.db.execute(update_sql)
-                
-                # 重新查询用户信息
-                sql = "SELECT * FROM users WHERE linux_do_id = ?"
-                return await self.db.get(sql, [linux_do_id])
-            else:
-                # 3. 用户不存在,创建新用户
-                fields = {
-                    'linux_do_id': linux_do_id,
-                    'linux_do_username': user_info.get('username', ''),
-                    'name': user_info.get('name', user_info.get('username', '未知用户')),
-                    'avatar': avatar,
-                    'auth_type': 'linux_do',
-                    'is_active': 1 if user_info.get('active', True) else 0,
-                    'last_login_time': current_time
-                }
-                
-                user_id = await self.db.table_insert('users', fields)
-                
-                return await self.get_user_by_id(user_id)
-                
-        except Exception as e:
-            logger.error(f'❌ 创建或更新Linux.do用户失败: {e}')
-            raise
     
     async def get_user_by_id(self, user_id):
         """
@@ -198,26 +130,6 @@ class AuthService:
         except Exception as e:
             logger.error(f'❌ 验证本地用户失败: {e}')
             return None
-    
-    async def get_user_by_linux_do_id(self, linux_do_id):
-        """
-        根据linux_do_id获取用户
-        
-        Args:
-            linux_do_id: Linux.do用户ID
-            
-        Returns:
-            dict: 用户信息,不存在返回None
-        """
-        try:
-            sql = "SELECT * FROM users WHERE linux_do_id = ?"
-            user = await self.db.get(sql, [linux_do_id])
-            
-            return user
-            
-        except Exception as e:
-            logger.error(f'❌ 查询用户失败: {e}')
-            raise
     
     async def get_user_by_username(self, username):
         """

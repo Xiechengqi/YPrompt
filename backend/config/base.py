@@ -8,26 +8,14 @@ class BaseConfig(object):
     # JWT秘钥
     SECRET_KEY = 'intramirror'
     
-    # Linux.do OAuth配置
-    LINUX_DO_CLIENT_ID = ''
-    LINUX_DO_CLIENT_SECRET = ''
-    LINUX_DO_REDIRECT_URI = ''
-    
     # ==========================================
     # 数据库配置
     # ==========================================
-    # 数据库类型: 'sqlite' 或 'mysql'
+    # 数据库类型: 'sqlite'
     DB_TYPE = 'sqlite'
     
     # SQLite配置
     SQLITE_DB_PATH = '../data/yprompt.db'
-    
-    # MySQL配置（当DB_TYPE='mysql'时使用）
-    DB_HOST = 'localhost'
-    DB_USER = 'root'
-    DB_PASS = ''
-    DB_NAME = 'yprompt'
-    DB_PORT = 3306
     
     # ==========================================
     # 默认管理员账号配置（仅首次初始化时使用）
@@ -35,6 +23,15 @@ class BaseConfig(object):
     DEFAULT_ADMIN_USERNAME = 'admin'
     DEFAULT_ADMIN_PASSWORD = 'admin123'
     DEFAULT_ADMIN_NAME = '管理员'
+    
+    # ==========================================
+    # 前端静态文件配置
+    # ==========================================
+    # 前端构建产物目录（相对于backend目录的路径）
+    # 开发环境: ../frontend/dist（从backend目录出发）
+    # Docker环境: 代码会自动检测 /app/frontend/dist
+    # 自定义路径: 可以设置为绝对路径，如 /path/to/frontend/dist
+    FRONTEND_DIST_PATH = '../frontend/dist'
 
     ACCESS_LOG = False
 

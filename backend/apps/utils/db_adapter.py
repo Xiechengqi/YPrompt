@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 数据库适配器
-支持 SQLite 和 MySQL 双数据库
+支持 SQLite 数据库
 """
 
 from abc import ABC, abstractmethod
@@ -52,68 +52,6 @@ class DatabaseAdapter(ABC):
     def transaction(self):
         """事务"""
         pass
-
-
-class MySQLAdapter(DatabaseAdapter):
-    """MySQL适配器 (使用ezmysql)"""
-    
-    def __init__(self, config: Dict):
-        from ezmysql import ConnectionAsync
-        
-        self.db = ConnectionAsync(
-            config['host'],
-            config['database'],
-            config['user'],
-            config['password'],
-            port=config.get('port', 3306),
-            minsize=config.get('minsize', 3),
-            maxsize=config.get('maxsize', 10),
-            pool_recycle=config.get('pool_recycle', 3600),
-            autocommit=True,
-            charset='utf8mb4'
-        )
-        logger.info(f"✅ MySQL连接池创建成功: {config['host']}/{config['database']}")
-    
-    async def connect(self):
-        """MySQL使用连接池，无需显式连接"""
-        pass
-    
-    async def close(self):
-        """关闭连接池"""
-        if self.db:
-            self.db.close()
-            logger.info("✅ MySQL连接池已关闭")
-    
-    async def get(self, sql: str, params: Optional[List] = None) -> Optional[Dict]:
-        """查询单条记录"""
-        if params:
-            return await self.db.get(sql, params)
-        return await self.db.get(sql)
-    
-    async def query(self, sql: str, params: Optional[List] = None) -> List[Dict]:
-        """查询多条记录"""
-        if params:
-            return await self.db.query(sql, params)
-        return await self.db.query(sql)
-    
-    async def execute(self, sql: str, params: Optional[List] = None):
-        """执行SQL"""
-        if params:
-            await self.db.execute(sql, params)
-        else:
-            await self.db.execute(sql)
-    
-    async def table_insert(self, table: str, data: Dict) -> int:
-        """插入数据"""
-        return await self.db.table_insert(table, data)
-    
-    async def table_update(self, table: str, data: Dict, where: str):
-        """更新数据"""
-        await self.db.table_update(table, data, where)
-    
-    def transaction(self):
-        """事务（ezmysql支持）"""
-        return self.db.transaction()
 
 
 class SQLiteAdapter(DatabaseAdapter):
@@ -202,7 +140,7 @@ async def create_database_adapter(db_type: str, config: Dict, app_config: Dict =
     创建数据库适配器
     
     Args:
-        db_type: 数据库类型 'sqlite' 或 'mysql'
+        db_type: 数据库类型 'sqlite'
         config: 数据库配置
         app_config: 应用配置（可选，用于获取默认管理员账号等配置）
         
@@ -217,12 +155,8 @@ async def create_database_adapter(db_type: str, config: Dict, app_config: Dict =
         await _initialize_sqlite_if_needed(adapter, app_config)
         
         return adapter
-    elif db_type == 'mysql':
-        adapter = MySQLAdapter(config)
-        await adapter.connect()
-        return adapter
     else:
-        raise ValueError(f"不支持的数据库类型: {db_type}")
+        raise ValueError(f"不支持的数据库类型: {db_type}，仅支持 'sqlite'")
 
 
 async def _initialize_sqlite_if_needed(adapter: SQLiteAdapter, config: Dict = None):
@@ -352,6 +286,8 @@ async def _sync_admin_account(adapter: SQLiteAdapter, config: Dict = None):
             admin_password = config.get('DEFAULT_ADMIN_PASSWORD', 'admin123')
             admin_name = config.get('DEFAULT_ADMIN_NAME', '管理员')
         
+        logger.info(f"🔄 开始同步管理员账号: username={admin_username}")
+        
         # 生成密码哈希
         import bcrypt
         password_bytes = admin_password.encode('utf-8')
@@ -369,21 +305,32 @@ async def _sync_admin_account(adapter: SQLiteAdapter, config: Dict = None):
             # 注意：由于bcrypt每次生成的salt不同，我们需要验证密码而不是直接比较哈希
             old_hash = existing_admin.get('password_hash', '')
             
-            # 验证当前密码是否正确
-            try:
-                is_password_correct = bcrypt.checkpw(password_bytes, old_hash.encode('utf-8'))
-            except:
-                is_password_correct = False
-            
-            if not is_password_correct:
-                # 密码不匹配，需要更新
+            if not old_hash:
+                # 密码哈希为空，需要更新
+                logger.warning(f"⚠️  管理员账号密码哈希为空，正在更新...")
                 await adapter.execute(
                     "UPDATE users SET password_hash = ?, name = ? WHERE id = ?",
                     [password_hash, admin_name, existing_admin['id']]
                 )
-                logger.info(f"🔄 管理员账号密码已更新: {admin_username}")
+                logger.info(f"✅ 管理员账号密码已更新: {admin_username}")
             else:
-                logger.info(f"✅ 管理员账号配置正确: {admin_username}")
+                # 验证当前密码是否正确
+                try:
+                    is_password_correct = bcrypt.checkpw(password_bytes, old_hash.encode('utf-8'))
+                except Exception as e:
+                    logger.warning(f"⚠️  密码验证出错: {e}，将更新密码哈希")
+                    is_password_correct = False
+                
+                if not is_password_correct:
+                    # 密码不匹配，需要更新
+                    logger.info(f"🔄 管理员账号密码不匹配，正在更新...")
+                    await adapter.execute(
+                        "UPDATE users SET password_hash = ?, name = ? WHERE id = ?",
+                        [password_hash, admin_name, existing_admin['id']]
+                    )
+                    logger.info(f"✅ 管理员账号密码已更新: {admin_username}")
+                else:
+                    logger.info(f"✅ 管理员账号配置正确: {admin_username}")
         else:
             # 账号不存在，创建新账号
             await adapter.execute(
