@@ -3,6 +3,6 @@
 docs/
 ./data
 node_modules
-dist
+# dist
 pnpm-lock.yaml
 #builtin-providers.json
