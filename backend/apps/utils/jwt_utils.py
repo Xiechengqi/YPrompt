@@ -4,10 +4,8 @@ JWT工具类
 """
 import jwt
 import datetime
-import logging
+from loguru import logger
 from config.settings import Config
-
-logger = logging.getLogger(__name__)
 
 
 class JWTUtil:

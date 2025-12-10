@@ -2,20 +2,17 @@
 认证路由（FastAPI）
 支持本地用户名密码认证
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
-import logging
+from loguru import logger
 
-from fastapi import Request
 from apps.utils.jwt_utils import JWTUtil
 from apps.utils.auth_middleware import get_current_user, get_current_user_id
 from apps.utils.dependencies import get_db
 from .services import AuthService
 from config.settings import Config
-
-logger = logging.getLogger(__name__)
 
 # 创建认证路由
 router = APIRouter(prefix='/api/auth', tags=['认证'])

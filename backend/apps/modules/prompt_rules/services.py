@@ -1,6 +1,4 @@
-import logging
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 class PromptRulesService:
     """用户提示词规则服务"""

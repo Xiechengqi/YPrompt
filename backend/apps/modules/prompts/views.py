@@ -4,14 +4,12 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
-import logging
+from loguru import logger
 
 from apps.utils.auth_middleware import get_current_user_id
 from apps.utils.dependencies import get_db
 from .services import PromptService
 from .models import *
-
-logger = logging.getLogger(__name__)
 
 # 创建提示词路由
 router = APIRouter(prefix='/api/prompts', tags=['提示词'])

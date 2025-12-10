@@ -2,35 +2,82 @@
 FastAPI 应用入口
 """
 import os
+import sys
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 from contextlib import asynccontextmanager
-import logging.config
+from loguru import logger
 
 from apps.utils.db_utils import init_database, close_database
 from apps.utils.jwt_utils import JWTUtil
 from config.settings import Config
-import logging
 
 
-# 配置日志
-try:
-    if hasattr(Config, 'BASE_LOGGING'):
-        logging.config.dictConfig(Config.BASE_LOGGING)
-    else:
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-except Exception as e:
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+# 配置 loguru 日志
+def setup_logging():
+    """配置 loguru 日志系统"""
+    # 移除默认的handler
+    logger.remove()
+    
+    # 控制台输出（带颜色）
+    logger.add(
+        sys.stdout,
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        level="INFO",
+        colorize=True
     )
+    
+    # 日志文件输出
+    # 尝试多个可能的路径
+    possible_log_dirs = [
+        Path('../data/logs/backend'),
+        Path('data/logs/backend'),
+        Path('/app/data/logs/backend'),
+    ]
+    
+    log_dir = None
+    for dir_path in possible_log_dirs:
+        if dir_path.exists() or dir_path.parent.exists():
+            log_dir = dir_path
+            break
+    
+    if not log_dir:
+        # 如果都不存在，使用第一个路径并创建
+        log_dir = possible_log_dirs[0]
+    
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    # INFO级别日志
+    logger.add(
+        log_dir / 'info.log',
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        level="INFO",
+        rotation="10 MB",
+        retention="10 days",
+        compression="zip",
+        encoding="utf-8"
+    )
+    
+    # ERROR级别日志
+    logger.add(
+        log_dir / 'error.log',
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        level="ERROR",
+        rotation="10 MB",
+        retention="30 days",
+        compression="zip",
+        encoding="utf-8",
+        backtrace=True,
+        diagnose=True
+    )
+    
+    logger.info(f"📝 日志系统初始化完成，日志目录: {log_dir}")
 
-logger = logging.getLogger(__name__)
+# 初始化日志
+setup_logging()
 
 
 @asynccontextmanager

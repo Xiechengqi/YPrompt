@@ -5,11 +5,9 @@
 from fastapi import Depends, HTTPException, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
-import logging
+from loguru import logger
 
 from apps.utils.jwt_utils import JWTUtil
-
-logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 

@@ -36,45 +36,11 @@ class BaseConfig(object):
     # redis配置
     REDIS_CON = "redis://127.0.0.1:6379/2"
 
-    # 日志配置，兼容sanic内置log库
+    # 日志配置（使用 loguru，配置在 main.py 中）
+    # loguru 配置已迁移到 main.py 的 setup_logging() 函数
+    # 保留这些路径配置用于兼容性（可选）
     LOGGING_INFO_FILE = '../data/logs/backend/info.log'
     LOGGING_ERROR_FILE = '../data/logs/backend/error.log'
-    BASE_LOGGING = {
-        'version': 1,
-        'loggers': {
-            "sanic.root": {"level": "INFO", "handlers": ["console", 'info_file', 'error_file']},
-        },
-        'formatters': {
-            'default': {
-                'format': '%(asctime)s | %(levelname)s | %(message)s',
-            }
-        },
-        'handlers': {
-            'console': {
-                'class': 'logging.StreamHandler',
-                'level': 'INFO',
-                'formatter': 'default',
-            },
-            'info_file': {
-                'class': 'logging.handlers.RotatingFileHandler',
-                'filename': LOGGING_INFO_FILE,
-                'maxBytes': (1 * 1024 * 1024),
-                'backupCount': 10,
-                'encoding': 'utf8',
-                'level': 'INFO',
-                'formatter': 'default',
-            },
-            'error_file': {
-                'class': 'logging.handlers.RotatingFileHandler',
-                'filename': LOGGING_ERROR_FILE,
-                'maxBytes': (1 * 1024 * 1024),
-                'backupCount': 10,
-                'encoding': 'utf8',
-                'level': 'ERROR',
-                'formatter': 'default',
-            },
-        },
-    }
 
     # 告警源和派生表映射关系
     S2T = {
@@ -109,8 +75,6 @@ class BaseConfig(object):
 
 
     def __init__(self):
-        if self.LOGGING_INFO_FILE:
-            self.BASE_LOGGING['handlers']['info_file']['filename'] = self.LOGGING_INFO_FILE
-
-        if self.LOGGING_ERROR_FILE:
-            self.BASE_LOGGING['handlers']['error_file']['filename'] = self.LOGGING_ERROR_FILE
+        # loguru 日志配置已迁移到 main.py
+        # 这里不再需要初始化日志配置
+        pass

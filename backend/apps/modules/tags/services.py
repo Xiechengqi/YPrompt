@@ -2,9 +2,7 @@
 标签服务类
 处理标签相关的业务逻辑
 """
-import logging
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class TagService:

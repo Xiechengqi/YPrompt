@@ -4,10 +4,8 @@
 支持: 本地用户名密码认证
 """
 import datetime
-import logging
+from loguru import logger
 from apps.utils.password_utils import PasswordUtil
-
-logger = logging.getLogger(__name__)
 
 
 class AuthService:

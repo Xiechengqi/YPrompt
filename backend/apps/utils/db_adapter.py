@@ -7,9 +7,7 @@ SQLite 数据库适配器
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
-import logging
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class DatabaseAdapter(ABC):

@@ -240,6 +240,7 @@ A: 通过环境变量 `LOGIN_USERNAME` 和 `LOGIN_PASSWORD` 配置，重启服�
 - **认证**: JWT (PyJWT) + bcrypt 密码加密
 - **API 文档**: FastAPI 内置 (Swagger UI + ReDoc)
 - **数据验证**: Pydantic
+- **日志系统**: Loguru 0.7.2 (现代化日志库)
 
 ## License
 

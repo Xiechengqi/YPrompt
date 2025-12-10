@@ -34,6 +34,7 @@ YPrompt Backend 是一个基于 FastAPI 的高性能异步后端服务，为 YPr
 - **HTTP客户端**: requests 2.31.0 + httpx 0.25.2 (异步)
 - **数据验证**: Pydantic (FastAPI内置)
 - **配置管理**: python-dotenv 1.0.0
+- **日志系统**: Loguru 0.7.2 (现代化日志库)
 
 ## 项目结构
 

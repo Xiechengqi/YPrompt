@@ -4,13 +4,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
-import logging
+from loguru import logger
 
 from apps.utils.auth_middleware import get_current_user_id
 from apps.utils.dependencies import get_db
 from .services import PromptRulesService
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix='/api/prompt-rules', tags=['提示词规则'])
 

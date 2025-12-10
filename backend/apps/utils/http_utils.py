@@ -1,9 +1,7 @@
 # https://www.python-httpx.org/
 import httpx
 from httpx._config import Limits
-import logging
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 class HTTPX:
     def __init__(self, url, data=None, params=None, headers=None):

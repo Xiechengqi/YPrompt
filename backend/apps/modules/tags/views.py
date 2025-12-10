@@ -5,13 +5,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional, List
-import logging
+from loguru import logger
 
 from apps.utils.auth_middleware import get_current_user_id
 from apps.utils.dependencies import get_db
 from .services import TagService
-
-logger = logging.getLogger(__name__)
 
 # 创建标签路由
 router = APIRouter(prefix='/api/tags', tags=['标签'])

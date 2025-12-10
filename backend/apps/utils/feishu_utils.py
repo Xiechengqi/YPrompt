@@ -7,15 +7,13 @@ import requests
 import json
 from jinja2 import Template
 import time
-import logging
 from urllib import parse
 import hmac
 import base64
 import hashlib
 import queue
 import os
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 # 接口频率限制
 # 1000 次/分钟、50 次/秒
@@ -397,7 +395,7 @@ class Auth(object):
         response_dict = resp.json()
         code = response_dict.get("code", -1)
         if code != 0:
-            logging.error(response_dict)
+            logger.error(response_dict)
             raise FeishuException(code=code, msg=response_dict.get("msg"))
 
 

@@ -1,8 +1,6 @@
-import logging
+from loguru import logger
 from apps.utils.db_adapter import create_database_adapter
 from config.settings import Config
-
-logger = logging.getLogger(__name__)
 
 
 async def init_database(app):
