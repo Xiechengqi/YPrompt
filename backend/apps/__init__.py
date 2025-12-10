@@ -166,6 +166,20 @@ def configure_static_files(sanic_app):
             return await file(index_path)
         return html('<h1>YPrompt</h1><p>前端构建文件未找到，请先构建前端项目。</p>')
     
+    # 创建通用的SPA路由处理函数
+    async def spa_route_handler(request):
+        """处理SPA路由，返回index.html"""
+        index_path = os.path.join(frontend_dist, 'index.html')
+        if os.path.exists(index_path):
+            return await file(index_path)
+        return empty(status=404)
+    
+    # 明确处理常见的SPA路由，确保它们能正确返回index.html
+    # 这些路由在通配路由之前注册，确保优先匹配
+    common_spa_routes = ['/login', '/generate', '/optimize', '/playground', '/library', '/auth/callback']
+    for route_path in common_spa_routes:
+        sanic_app.route(route_path, methods=['GET', 'HEAD'], strict_slashes=False)(spa_route_handler)
+    
     # SPA路由支持：处理所有非API路径，返回index.html
     # 注意：这个路由必须在蓝图（API路由）之后注册，确保API路由优先匹配
     # 使用 GET 和 HEAD 方法匹配所有路径，确保 SPA 路由正常工作
