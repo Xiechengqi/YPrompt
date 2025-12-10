@@ -16,14 +16,7 @@ class Config:
     # JWT配置
     # ==========================================
     SECRET_KEY = 'yprompt-dev-secret-key-change-in-production'
-    
-    # ==========================================
-    # 默认管理员账号配置
-    # ==========================================
-    DEFAULT_ADMIN_USERNAME = 'admin'
-    DEFAULT_ADMIN_PASSWORD = 'admin123'
-    DEFAULT_ADMIN_NAME = '管理员'
-    
+
     # ==========================================
     # 服务器配置
     # ==========================================

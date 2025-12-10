@@ -10,10 +10,16 @@ class Config(BaseConfig):
 
     # JWT配置（优先使用环境变量）
     SECRET_KEY = os.getenv('SECRET_KEY') or cf.SECRET_KEY
+
+    # 登录用户配置（仅从环境变量读取）
+    LOGIN_USERNAME = os.getenv('LOGIN_USERNAME', 'admin')
+    LOGIN_PASSWORD = os.getenv('LOGIN_PASSWORD', 'admin123')
+    LOGIN_NAME = os.getenv('LOGIN_NAME', '管理员')
     
-    # 默认管理员账号配置（优先使用环境变量）
-    DEFAULT_ADMIN_USERNAME = os.getenv('ADMIN_USERNAME') or (cf.DEFAULT_ADMIN_USERNAME if hasattr(cf, 'DEFAULT_ADMIN_USERNAME') else 'admin')
-    DEFAULT_ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD') or (cf.DEFAULT_ADMIN_PASSWORD if hasattr(cf, 'DEFAULT_ADMIN_PASSWORD') else 'admin123')
-    DEFAULT_ADMIN_NAME = cf.DEFAULT_ADMIN_NAME if hasattr(cf, 'DEFAULT_ADMIN_NAME') else '管理员'
+    # 兼容旧配置（已废弃，保留用于向后兼容）
+    DEFAULT_ADMIN_USERNAME = LOGIN_USERNAME
+    DEFAULT_ADMIN_PASSWORD = LOGIN_PASSWORD
+    DEFAULT_ADMIN_NAME = LOGIN_NAME
+
 
 

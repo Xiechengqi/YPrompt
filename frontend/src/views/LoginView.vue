@@ -1,5 +1,10 @@
 <template>
   <div class="login-container">
+    <!-- Git Commit 显示在右上角 -->
+    <div class="absolute top-2 right-2 z-50">
+      <GitCommit />
+    </div>
+    
     <div class="login-card">
       <!-- Logo和标题 -->
       <div class="login-header">
@@ -8,6 +13,11 @@
         </div>
         <h1 class="login-title">YPrompt</h1>
         <p class="login-subtitle">提示词管理系统</p>
+        <!-- Debug 模式提示 -->
+        <div v-if="isDebugMode" class="debug-badge">
+          <span class="debug-icon">🐛</span>
+          <span>Debug 模式（Mock API）</span>
+        </div>
       </div>
 
       <!-- 加载状态 -->
@@ -105,113 +115,8 @@
               <span v-if="isSubmitting">登录中...</span>
               <span v-else>登录</span>
             </button>
-
-            <!-- 注册链接 -->
-            <div v-if="authConfig.registration_enabled" class="register-link">
-              还没有账号？
-              <a @click.prevent="showRegister = true" href="#" class="register-btn">立即注册</a>
-            </div>
           </form>
         </div>
-
-        <!-- 注册表单（弹窗） -->
-        <Transition name="modal">
-          <div v-if="showRegister" class="modal-overlay" @click.self="closeRegister">
-            <div class="modal-content" @click.stop>
-              <div class="modal-header">
-                <h2>注册新账号</h2>
-                <button @click="closeRegister" class="modal-close" aria-label="关闭">
-                  <X :size="20" />
-                </button>
-              </div>
-              
-              <form @submit.prevent="handleRegister" class="register-form">
-                <div class="form-group">
-                  <label for="reg-username">用户名</label>
-                  <div class="input-wrapper">
-                    <input
-                      id="reg-username"
-                      v-model="registerForm.username"
-                      type="text"
-                      class="form-input"
-                      :class="{ 'input-error': registerErrors.username }"
-                      placeholder="3-20个字符，字母开头"
-                      :disabled="isSubmitting"
-                      autocomplete="username"
-                      @blur="validateRegisterForm"
-                      @input="clearRegisterError('username')"
-                    />
-                    <div v-if="registerForm.username && !registerErrors.username" class="input-icon success">
-                      <Check :size="18" />
-                    </div>
-                  </div>
-                  <div v-if="registerErrors.username" class="field-error">{{ registerErrors.username }}</div>
-                  <div v-else class="field-hint">3-20个字符，字母开头，可包含字母、数字、下划线</div>
-                </div>
-
-                <div class="form-group">
-                  <label for="reg-password">密码</label>
-                  <div class="input-wrapper">
-                    <input
-                      id="reg-password"
-                      v-model="registerForm.password"
-                      :type="showRegisterPassword ? 'text' : 'password'"
-                      class="form-input"
-                      :class="{ 'input-error': registerErrors.password }"
-                      placeholder="至少8个字符，包含字母和数字"
-                      :disabled="isSubmitting"
-                      autocomplete="new-password"
-                      @blur="validateRegisterForm"
-                      @input="clearRegisterError('password')"
-                    />
-                    <button
-                      type="button"
-                      class="password-toggle"
-                      @click="showRegisterPassword = !showRegisterPassword"
-                      :disabled="isSubmitting"
-                      tabindex="-1"
-                    >
-                      <Eye v-if="!showRegisterPassword" :size="18" />
-                      <EyeOff v-else :size="18" />
-                    </button>
-                  </div>
-                  <div v-if="registerErrors.password" class="field-error">{{ registerErrors.password }}</div>
-                  <div v-else class="field-hint">至少8个字符，包含字母和数字</div>
-                </div>
-
-                <div class="form-group">
-                  <label for="reg-name">显示名称（可选）</label>
-                  <input
-                    id="reg-name"
-                    v-model="registerForm.name"
-                    type="text"
-                    class="form-input"
-                    placeholder="留空则使用用户名"
-                    :disabled="isSubmitting"
-                    autocomplete="name"
-                  />
-                </div>
-
-                <Transition name="fade">
-                  <div v-if="errorMessage" class="error-message">
-                    <AlertCircle :size="16" />
-                    <span>{{ errorMessage }}</span>
-                  </div>
-                </Transition>
-
-                <button
-                  type="submit"
-                  class="btn btn-primary btn-block"
-                  :disabled="isSubmitting || !isRegisterFormValid"
-                >
-                  <Loader2 v-if="isSubmitting" :size="18" class="spinning" />
-                  <span v-if="isSubmitting">注册中...</span>
-                  <span v-else>注册</span>
-                </button>
-              </form>
-            </div>
-          </div>
-        </Transition>
       </div>
     </div>
   </div>
@@ -221,45 +126,36 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
-import { Eye, EyeOff, Check, AlertCircle, Loader2, X } from 'lucide-vue-next'
+import { Eye, EyeOff, Check, AlertCircle, Loader2 } from 'lucide-vue-next'
+import { isDebugMode as checkDebugMode } from '@/services/mockApiService'
+import GitCommit from '@/components/GitCommit.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
+// Debug 模式状态
+const isDebugMode = computed(() => checkDebugMode())
+
 // 认证配置
 const authConfig = ref({
-  local_auth_enabled: true,
-  registration_enabled: true
+  local_auth_enabled: true
 })
 
-// 表单数据
+// 表单数据（从环境变量读取用户名）
 const loginForm = ref({
-  username: '',
+  username: import.meta.env.VITE_LOGIN_USERNAME || '',
   password: ''
-})
-
-const registerForm = ref({
-  username: '',
-  password: '',
-  name: ''
 })
 
 // 状态
 const isLoading = ref(true)
 const isSubmitting = ref(false)
 const errorMessage = ref('')
-const showRegister = ref(false)
 const showPassword = ref(false)
-const showRegisterPassword = ref(false)
 const rememberMe = ref(false)
 
 // 表单验证错误
 const loginErrors = ref<{
-  username?: string
-  password?: string
-}>({})
-
-const registerErrors = ref<{
   username?: string
   password?: string
 }>({})
@@ -274,13 +170,8 @@ const validateUsername = (username: string): string | null => {
   return null
 }
 
-const validatePassword = (password: string, isRegister = false): string | null => {
+const validatePassword = (password: string): string | null => {
   if (!password) return '请输入密码'
-  if (isRegister) {
-    if (password.length < 8) return '密码至少8个字符'
-    if (!/[a-zA-Z]/.test(password)) return '密码必须包含字母'
-    if (!/[0-9]/.test(password)) return '密码必须包含数字'
-  }
   return null
 }
 
@@ -295,40 +186,17 @@ const validateLoginForm = () => {
   return Object.keys(loginErrors.value).length === 0
 }
 
-const validateRegisterForm = () => {
-  registerErrors.value = {}
-  const usernameError = validateUsername(registerForm.value.username)
-  const passwordError = validatePassword(registerForm.value.password, true)
-  
-  if (usernameError) registerErrors.value.username = usernameError
-  if (passwordError) registerErrors.value.password = passwordError
-  
-  return Object.keys(registerErrors.value).length === 0
-}
-
 const clearFieldError = (field: 'username' | 'password') => {
   if (loginErrors.value[field]) {
     delete loginErrors.value[field]
   }
 }
 
-const clearRegisterError = (field: 'username' | 'password') => {
-  if (registerErrors.value[field]) {
-    delete registerErrors.value[field]
-  }
-}
-
 // 计算属性：表单是否有效
 const isLoginFormValid = computed(() => {
-  return loginForm.value.username.length > 0 && 
+  return loginForm.value.username.length > 0 &&
          loginForm.value.password.length > 0 &&
          Object.keys(loginErrors.value).length === 0
-})
-
-const isRegisterFormValid = computed(() => {
-  return registerForm.value.username.length > 0 && 
-         registerForm.value.password.length > 0 &&
-         Object.keys(registerErrors.value).length === 0
 })
 
 // 获取认证配置
@@ -337,21 +205,15 @@ const fetchAuthConfig = async () => {
     const config = await authStore.getAuthConfig()
     if (config) {
       authConfig.value = config
+      // 如果环境变量没有设置用户名，使用后端返回的用户名
+      if (!loginForm.value.username && config.login_username) {
+        loginForm.value.username = config.login_username
+      }
     }
   } catch (error) {
     console.error('获取认证配置失败:', error)
   } finally {
     isLoading.value = false
-  }
-}
-
-// 加载保存的用户名
-const loadRememberedUsername = () => {
-  if (rememberMe.value) {
-    const saved = localStorage.getItem('yprompt_remembered_username')
-    if (saved) {
-      loginForm.value.username = saved
-    }
   }
 }
 
@@ -374,12 +236,12 @@ const handleLocalLogin = async () => {
   isSubmitting.value = true
 
   try {
-    const success = await authStore.loginWithPassword(
+    const result = await authStore.loginWithPassword(
       loginForm.value.username.trim(),
       loginForm.value.password
     )
 
-    if (success) {
+    if (result.success) {
       // 保存记住我设置
       saveRememberedUsername()
       // 登录成功，跳转到原始目标路径或主页
@@ -390,59 +252,15 @@ const handleLocalLogin = async () => {
         router.push('/')
       }
     } else {
-      errorMessage.value = '用户名或密码错误'
+      // 显示详细的错误信息
+      errorMessage.value = result.message || '用户名或密码错误'
     }
   } catch (error) {
-    errorMessage.value = '登录失败，请稍后重试'
+    errorMessage.value = error instanceof Error ? error.message : '登录失败，请稍后重试'
     console.error('登录失败:', error)
   } finally {
     isSubmitting.value = false
   }
-}
-
-// 注册新账号
-const handleRegister = async () => {
-  if (!validateRegisterForm()) {
-    return
-  }
-
-  errorMessage.value = ''
-  isSubmitting.value = true
-
-  try {
-    const result = await authStore.register(
-      registerForm.value.username.trim(),
-      registerForm.value.password,
-      registerForm.value.name.trim() || undefined
-    )
-
-    if (result.success) {
-      // 注册成功，使用注册的用户名和密码自动登录
-      loginForm.value.username = registerForm.value.username.trim()
-      loginForm.value.password = registerForm.value.password
-      showRegister.value = false
-      await handleLocalLogin()
-    } else {
-      errorMessage.value = result.error || '注册失败，请检查输入信息'
-    }
-  } catch (error) {
-    errorMessage.value = '注册失败，请检查输入信息'
-    console.error('注册失败:', error)
-  } finally {
-    isSubmitting.value = false
-  }
-}
-
-// 关闭注册弹窗
-const closeRegister = () => {
-  showRegister.value = false
-  errorMessage.value = ''
-  registerForm.value = {
-    username: '',
-    password: '',
-    name: ''
-  }
-  registerErrors.value = {}
 }
 
 onMounted(() => {
@@ -556,6 +374,24 @@ onMounted(() => {
   margin: 0;
 }
 
+.debug-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 6px 12px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #856404;
+  font-weight: 500;
+}
+
+.debug-icon {
+  font-size: 14px;
+}
+
 .loading-state {
   text-align: center;
   padding: 60px 0;
@@ -584,8 +420,7 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
-.login-form,
-.register-form {
+.login-form {
   margin-top: 20px;
 }
 
@@ -772,25 +607,6 @@ onMounted(() => {
   border: 1px solid #fc8181;
 }
 
-.register-link {
-  text-align: center;
-  margin-top: 20px;
-  font-size: 14px;
-  color: #718096;
-}
-
-.register-btn {
-  color: #667eea;
-  text-decoration: none;
-  font-weight: 500;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.register-btn:hover {
-  color: #5a67d8;
-  text-decoration: underline;
-}
 
 /* 模态框样式 */
 .modal-overlay {

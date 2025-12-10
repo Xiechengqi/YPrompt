@@ -9,7 +9,6 @@ from sanic.log import logger
 
 from apps.utils.jwt_utils import JWTUtil
 from apps.utils.auth_middleware import auth_required
-from apps.utils.password_utils import PasswordUtil, UsernameUtil
 from .services import AuthService
 from .models import *
 
@@ -49,9 +48,15 @@ async def local_login(request):
                 'message': '用户名和密码不能为空'
             })
         
-        # 2. 验证用户名和密码
+        # 2. 验证用户名和密码（从环境变量配置）
+        from config import settings
         auth_service = AuthService(request.app.ctx.db)
-        user = await auth_service.verify_local_user(username, password)
+        user = await auth_service.verify_local_user(
+            username, 
+            password,
+            settings.LOGIN_USERNAME,
+            settings.LOGIN_PASSWORD
+        )
         
         if not user:
             return json({
@@ -91,84 +96,6 @@ async def local_login(request):
         return json({
             'code': 500,
             'message': f'登录失败: {str(e)}'
-        })
-
-
-@auth.post('/local/register')
-@openapi.summary("本地用户注册")
-@openapi.description("创建新的本地用户（仅限私有部署）")
-@openapi.body({"application/json": {
-    "username": openapi.String(description="用户名（3-20字符）", required=True),
-    "password": openapi.String(description="密码（至少8字符）", required=True),
-    "name": openapi.String(description="显示名称（可选）")
-}})
-@openapi.response(200, {"application/json": SuccessResponse}, description="注册成功")
-@openapi.response(400, {"application/json": ErrorResponse}, description="参数错误")
-async def local_register(request):
-    """
-    本地用户注册接口
-    
-    注意：生产环境建议限制注册，或要求管理员审核
-    """
-    try:
-        data = request.json
-        username = data.get('username', '').strip()
-        password = data.get('password', '')
-        name = data.get('name', '').strip()
-        
-        # 1. 参数验证
-        if not username or not password:
-            return json({
-                'code': 400,
-                'message': '用户名和密码不能为空'
-            })
-        
-        # 2. 验证用户名格式
-        is_valid, error_msg = UsernameUtil.validate_username(username)
-        if not is_valid:
-            return json({
-                'code': 400,
-                'message': error_msg
-            })
-        
-        # 3. 验证密码强度
-        is_valid, error_msg = PasswordUtil.validate_password_strength(password)
-        if not is_valid:
-            return json({
-                'code': 400,
-                'message': error_msg
-            })
-        
-        # 4. 创建用户
-        auth_service = AuthService(request.app.ctx.db)
-        
-        try:
-            user = await auth_service.create_local_user(username, password, name or username)
-            
-            logger.info(f'✅ 本地用户注册成功: username={username}, id={user["id"]}')
-            
-            return json({
-                'code': 200,
-                'message': '注册成功',
-                'data': {
-                    'id': user['id'],
-                    'username': username,
-                    'name': user['name']
-                }
-            })
-            
-        except ValueError as e:
-            # 用户名已存在等错误
-            return json({
-                'code': 400,
-                'message': str(e)
-            })
-        
-    except Exception as e:
-        logger.error(f'❌ 本地注册接口异常: {e}', exc_info=True)
-        return json({
-            'code': 500,
-            'message': f'注册失败: {str(e)}'
         })
 
 
@@ -312,12 +239,12 @@ async def logout(request):
 
 @auth.get('/config')
 @openapi.summary("获取认证配置")
-@openapi.description("获取系统支持的认证方式")
+@openapi.description("获取系统支持的认证方式和登录用户信息")
 @openapi.response(200, {"application/json": {
     "code": int,
     "data": {
         "local_auth_enabled": openapi.Boolean(description="是否启用本地认证"),
-        "registration_enabled": openapi.Boolean(description="是否允许注册")
+        "login_username": openapi.String(description="登录用户名（从环境变量）")
     }
 }})
 async def get_auth_config(request):
@@ -325,13 +252,15 @@ async def get_auth_config(request):
     获取认证配置接口
     
     前端可以根据此接口返回的配置决定显示哪些登录选项
+    返回登录用户名用于前端预填充
     """
     try:
+        from config import settings
         return json({
             'code': 200,
             'data': {
                 'local_auth_enabled': True,  # 本地认证始终可用
-                'registration_enabled': True  # 是否允许注册（可配置）
+                'login_username': settings.LOGIN_USERNAME  # 返回配置的用户名
             }
         })
         

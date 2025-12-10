@@ -118,7 +118,7 @@ def configure_blueprints(sanic_app):
 def configure_static_files(sanic_app):
     """配置静态文件服务和SPA路由支持"""
     # 获取前端构建产物目录配置
-    frontend_dist_config = getattr(Config, 'FRONTEND_DIST_PATH', '../frontend/dist')
+    frontend_dist_config = getattr(Config, 'FRONTEND_DIST_PATH', '../dist')
     
     # 计算backend目录的路径
     # __file__ 是 backend/apps/__init__.py
@@ -135,16 +135,29 @@ def configure_static_files(sanic_app):
     
     # 如果目录不存在，尝试其他可能的路径
     if not os.path.exists(frontend_dist):
-        # Docker 环境下的路径
-        docker_path = '/app/frontend/dist'
-        if os.path.exists(docker_path):
+        # 尝试项目根目录下的 dist（新路径）
+        project_root_dist = os.path.abspath(os.path.join(backend_dir, '..', 'dist'))
+        # Docker 环境下的路径（项目根目录）
+        docker_path = '/app/dist'
+        # Docker 环境下的旧路径（兼容）
+        docker_old_path = '/app/frontend/dist'
+        
+        if os.path.exists(project_root_dist):
+            frontend_dist = project_root_dist
+            logger.info(f"✓ 使用项目根目录路径: {frontend_dist}")
+        elif os.path.exists(docker_path):
             frontend_dist = docker_path
             logger.info(f"✓ 使用Docker环境路径: {frontend_dist}")
+        elif os.path.exists(docker_old_path):
+            frontend_dist = docker_old_path
+            logger.info(f"✓ 使用Docker环境旧路径: {frontend_dist}")
         else:
             logger.warning(f"⚠️  前端构建目录不存在: {frontend_dist}")
             logger.warning(f"   尝试过的路径:")
             logger.warning(f"   - {frontend_dist}")
+            logger.warning(f"   - {project_root_dist}")
             logger.warning(f"   - {docker_path}")
+            logger.warning(f"   - {docker_old_path}")
             logger.warning(f"   静态文件服务将不可用")
             return
     

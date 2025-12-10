@@ -16,22 +16,15 @@ class BaseConfig(object):
     
     # SQLite配置
     SQLITE_DB_PATH = '../data/yprompt.db'
-    
-    # ==========================================
-    # 默认管理员账号配置（仅首次初始化时使用）
-    # ==========================================
-    DEFAULT_ADMIN_USERNAME = 'admin'
-    DEFAULT_ADMIN_PASSWORD = 'admin123'
-    DEFAULT_ADMIN_NAME = '管理员'
-    
+
     # ==========================================
     # 前端静态文件配置
     # ==========================================
     # 前端构建产物目录（相对于backend目录的路径）
-    # 开发环境: ../frontend/dist（从backend目录出发）
-    # Docker环境: 代码会自动检测 /app/frontend/dist
-    # 自定义路径: 可以设置为绝对路径，如 /path/to/frontend/dist
-    FRONTEND_DIST_PATH = '../frontend/dist'
+    # 开发环境: ../dist（从backend目录出发，指向项目根目录下的dist）
+    # Docker环境: 代码会自动检测 /app/dist
+    # 自定义路径: 可以设置为绝对路径，如 /path/to/dist
+    FRONTEND_DIST_PATH = '../dist'
 
     ACCESS_LOG = False
 

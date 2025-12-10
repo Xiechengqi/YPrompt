@@ -1,13 +1,10 @@
-.DS_Store
-.claude
 docs/
-# dist
+dist
 node_modules
 pnpm-lock.yaml
 #builtin-providers.json
-
-# 环境变量文件
-.env
-.env.local
-.env.*.local
-
+# 忽略所有隐藏文件和目录
+.*
+# 但不忽略 .gitignore 文件
+!.gitignore
+!.github

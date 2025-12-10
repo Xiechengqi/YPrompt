@@ -58,7 +58,7 @@ app.use(pinia)
 app.use(router)
 
 // 路由守卫：未登录跳转到登录页
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
   // 动态导入 authStore（需要在 pinia 初始化后）
   const { useAuthStore } = await import('./stores/authStore')
   const authStore = useAuthStore()

@@ -9,6 +9,12 @@ declare module '*.vue' {
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string
   readonly VITE_FEISHU_APP_ID: string
+  readonly VITE_LOGIN_USERNAME?: string
+  readonly VITE_LOGIN_PASSWORD?: string
+  readonly VITE_GIT_COMMIT_HASH?: string
+  readonly VITE_GIT_COMMIT_DATE?: string
+  readonly VITE_DEBUG_MODE?: string  // 'true' 启用 debug 模式
+  readonly MODE?: string  // 'debug' 模式
 }
 
 interface ImportMeta {

@@ -1,7 +1,10 @@
 /**
  * API服务封装
  * 统一处理API请求，自动携带token
+ * 支持 debug 模式，在 debug 模式下使用 mock API
  */
+
+import { isDebugMode, mockRequest } from './mockApiService'
 
 // 生产环境使用相对路径，开发环境使用完整URL
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
@@ -20,6 +23,14 @@ async function request<T = any>(
   url: string,
   options: RequestInit = {}
 ): Promise<T> {
+  // Debug 模式：使用 mock API
+  if (isDebugMode()) {
+    const method = options.method || 'GET'
+    const body = options.body ? JSON.parse(options.body as string) : undefined
+    return mockRequest<T>(method, url, body)
+  }
+  
+  // 正常模式：使用真实 API
   const token = getToken()
   
   // 合并headers

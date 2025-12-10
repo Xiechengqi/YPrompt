@@ -12,24 +12,6 @@ AI通过对话挖掘用户需求，并自动生成专业的提示词，支持系
 - SQLite 数据库（默认，零配置）
 - 响应式设计（桌面/移动端）
 
-## 界面
-
-![](imgs/1.gif)
-![](imgs/2.gif)
-![](imgs/3.gif)
-![](imgs/4.gif)
-![](imgs/5.gif)
-![](imgs/6.gif)
-![](imgs/7.gif)
-![](imgs/8.gif)
-![](imgs/9.gif)
-![](imgs/10.gif)
-![](imgs/11.gif)
-![](imgs/12.gif)
-![](imgs/13.gif)
-![](imgs/14.gif)
-![](imgs/15.gif)
-
 ## 系统架构
 
 ```

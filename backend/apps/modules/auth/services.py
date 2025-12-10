@@ -45,82 +45,56 @@ class AuthService:
             logger.error(f'❌ 查询用户失败: {e}')
             raise
     
-    async def create_local_user(self, username, password, name=None):
+    async def verify_local_user(self, username, password, config_username, config_password):
         """
-        创建本地用户(用户名密码认证)
+        验证本地用户密码（仅验证环境变量配置的用户）
         
         Args:
             username: 用户名
             password: 明文密码
-            name: 显示名称(可选,默认为用户名)
-            
-        Returns:
-            dict: 用户信息
-        """
-        try:
-            # 1. 检查用户名是否已存在
-            sql = "SELECT * FROM users WHERE username = ?"
-            existing_user = await self.db.get(sql, [username])
-            
-            if existing_user:
-                raise ValueError(f'用户名 {username} 已存在')
-            
-            # 2. 密码哈希
-            password_hash = PasswordUtil.hash_password(password)
-            
-            # 3. 创建用户
-            current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            fields = {
-                'username': username,
-                'password_hash': password_hash,
-                'name': name or username,
-                'auth_type': 'local',
-                'is_active': 1,
-                'last_login_time': current_time
-            }
-            
-            user_id = await self.db.table_insert('users', fields)
-            
-            logger.info(f'✅ 本地用户创建成功: username={username}, id={user_id}')
-            
-            return await self.get_user_by_id(user_id)
-            
-        except Exception as e:
-            logger.error(f'❌ 创建本地用户失败: {e}')
-            raise
-    
-    async def verify_local_user(self, username, password):
-        """
-        验证本地用户密码
-        
-        Args:
-            username: 用户名
-            password: 明文密码
+            config_username: 配置的用户名（从环境变量）
+            config_password: 配置的密码（从环境变量）
             
         Returns:
             dict: 用户信息(验证成功) 或 None(验证失败)
         """
         try:
-            # 1. 查询用户
+            # 1. 验证用户名和密码是否匹配环境变量配置
+            if username != config_username or password != config_password:
+                logger.warning(f'⚠️  用户名或密码错误: username={username}')
+                return None
+            
+            # 2. 查询或创建用户（确保用户存在）
             sql = "SELECT * FROM users WHERE username = ? AND auth_type = 'local'"
             user = await self.db.get(sql, [username])
             
             if not user:
-                logger.warning(f'⚠️  用户不存在: username={username}')
-                return None
+                # 用户不存在，创建用户
+                logger.info(f'📝 用户不存在，自动创建: username={username}')
+                password_hash = PasswordUtil.hash_password(password)
+                current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                fields = {
+                    'username': username,
+                    'password_hash': password_hash,
+                    'name': username,
+                    'auth_type': 'local',
+                    'is_active': 1,
+                    'is_admin': 1,
+                    'last_login_time': current_time
+                }
+                user_id = await self.db.table_insert('users', fields)
+                user = await self.get_user_by_id(user_id)
+            else:
+                # 用户存在，检查是否激活
+                if not user.get('is_active', 0):
+                    logger.warning(f'⚠️  用户已被禁用: username={username}')
+                    return None
+                
+                # 更新密码哈希（确保与配置一致）
+                password_hash = PasswordUtil.hash_password(password)
+                await self.db.table_update('users', {'password_hash': password_hash}, f"id = {user['id']}")
             
-            # 2. 检查用户是否激活
-            if not user.get('is_active', 0):
-                logger.warning(f'⚠️  用户已被禁用: username={username}')
-                return None
-            
-            # 3. 验证密码
-            password_hash = user.get('password_hash')
-            if not PasswordUtil.verify_password(password, password_hash):
-                logger.warning(f'⚠️  密码错误: username={username}')
-                return None
-            
-            # 4. 更新最后登录时间
+            # 3. 更新最后登录时间
             await self.update_last_login_time(user['id'])
             
             logger.info(f'✅ 本地用户登录成功: username={username}, id={user["id"]}')

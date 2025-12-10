@@ -1,9 +1,11 @@
 /**
  * 认证状态管理
  * 管理用户登录、token、用户信息
+ * 支持 debug 模式，在 debug 模式下使用 mock API
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { isDebugMode, mockRequest } from '@/services/mockApiService'
 
 export interface User {
   id: number
@@ -67,18 +69,46 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * 本地用户名密码登录
    */
-  const loginWithPassword = async (username: string, password: string): Promise<boolean> => {
+  const loginWithPassword = async (username: string, password: string): Promise<{ success: boolean; message?: string }> => {
     isLoading.value = true
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/local/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      })
+      let result: any
       
-      const result = await response.json()
+      // Debug 模式：使用 mock API
+      if (isDebugMode()) {
+        result = await mockRequest('POST', '/api/auth/local/login', { username, password })
+      } else {
+        // 正常模式：使用真实 API
+        const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
+        const url = `${apiBaseUrl}/api/auth/local/login`
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ username, password }),
+        })
+        
+        // 检查响应状态
+        if (!response.ok) {
+          // 尝试解析错误响应
+          try {
+            const errorResult = await response.json()
+            return {
+              success: false,
+              message: errorResult.message || `请求失败: ${response.status} ${response.statusText}`
+            }
+          } catch (parseError) {
+            return {
+              success: false,
+              message: `网络错误: ${response.status} ${response.statusText}`
+            }
+          }
+        }
+        
+        result = await response.json()
+      }
       
       if (result.code === 200 && result.data) {
         setToken(result.data.token)
@@ -92,55 +122,49 @@ export const useAuthStore = defineStore('auth', () => {
           console.error('登录后加载云端配置失败:', error)
         }
         
-        return true
-      } else {
-        return false
-      }
-    } catch (error) {
-      return false
-    } finally {
-      isLoading.value = false
-    }
-  }
-  
-  /**
-   * 本地用户注册
-   */
-  const register = async (username: string, password: string, name?: string): Promise<{ success: boolean; error?: string }> => {
-    isLoading.value = true
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/local/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password, name }),
-      })
-      
-      const result = await response.json()
-      
-      if (result.code === 200) {
         return { success: true }
       } else {
-        return { success: false, error: result.message || '注册失败' }
+        return {
+          success: false,
+          message: result.message || '登录失败，请检查用户名和密码'
+        }
       }
     } catch (error) {
-      return { success: false, error: '网络错误，请稍后重试' }
+      console.error('登录请求失败:', error)
+      // 网络错误或 CORS 错误
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return {
+          success: false,
+          message: '无法连接到服务器，请检查网络连接和 API 地址配置'
+        }
+      }
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : '登录失败，请稍后重试'
+      }
     } finally {
       isLoading.value = false
     }
   }
-  
+
   /**
    * 获取认证配置
    */
   const getAuthConfig = async (): Promise<{
     local_auth_enabled: boolean
-    registration_enabled: boolean
+    login_username?: string
   } | null> => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/config`)
-      const result = await response.json()
+      let result: any
+      
+      // Debug 模式：使用 mock API
+      if (isDebugMode()) {
+        result = await mockRequest('GET', '/api/auth/config')
+      } else {
+        // 正常模式：使用真实 API
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/config`)
+        result = await response.json()
+      }
       
       if (result.code === 200 && result.data) {
         return result.data
@@ -158,15 +182,22 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token.value) return false
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token.value}`,
-          'Content-Type': 'application/json',
-        },
-      })
+      let result: any
       
-      const result = await response.json()
+      // Debug 模式：使用 mock API
+      if (isDebugMode()) {
+        result = await mockRequest('POST', '/api/auth/refresh')
+      } else {
+        // 正常模式：使用真实 API
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/refresh`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token.value}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        result = await response.json()
+      }
       
       if (result.code === 200 && result.data) {
         setToken(result.data.token)
@@ -185,14 +216,21 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token.value) return false
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/userinfo`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token.value}`,
-        },
-      })
+      let result: any
       
-      const result = await response.json()
+      // Debug 模式：使用 mock API
+      if (isDebugMode()) {
+        result = await mockRequest('GET', '/api/auth/userinfo')
+      } else {
+        // 正常模式：使用真实 API
+        const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/userinfo`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token.value}`,
+          },
+        })
+        result = await response.json()
+      }
       
       if (result.code === 200 && result.data) {
         setUser(result.data)
@@ -210,12 +248,18 @@ export const useAuthStore = defineStore('auth', () => {
   const logout = async () => {
     if (token.value) {
       try {
-        await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token.value}`,
-          },
-        })
+        // Debug 模式：使用 mock API
+        if (isDebugMode()) {
+          await mockRequest('POST', '/api/auth/logout')
+        } else {
+          // 正常模式：使用真实 API
+          await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/auth/logout`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token.value}`,
+            },
+          })
+        }
       } catch (error) {
         // 忽略登出错误，继续清除本地状态
       }
@@ -284,7 +328,6 @@ export const useAuthStore = defineStore('auth', () => {
     setToken,
     setUser,
     loginWithPassword,
-    register,
     getAuthConfig,
     refreshToken,
     fetchUserInfo,
