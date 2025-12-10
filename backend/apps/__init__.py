@@ -168,30 +168,38 @@ def configure_static_files(sanic_app):
     
     # SPA路由支持：处理所有非API路径，返回index.html
     # 注意：这个路由必须在蓝图（API路由）之后注册，确保API路由优先匹配
-    @sanic_app.route('/<path:path>')
+    # 使用 GET 和 HEAD 方法匹配所有路径，确保 SPA 路由正常工作
+    @sanic_app.route('/<path:path>', methods=['GET', 'HEAD'], strict_slashes=False)
     async def spa_fallback(request, path):
         """SPA路由回退：所有非API路径返回index.html"""
         # 确保不拦截API路由（虽然理论上不会，因为蓝图先注册）
         if request.path.startswith('/api/'):
+            logger.warning(f"⚠️  SPA路由不应该处理API路径: {request.path}")
             return empty(status=404)
         
-        # 检查是否是静态资源文件
+        # 检查是否是静态资源文件（通过扩展名判断）
         static_extensions = ['.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.ico', 
                             '.svg', '.woff', '.woff2', '.ttf', '.eot', '.json', '.map',
                             '.xml', '.txt', '.webmanifest']
         
-        if any(path.lower().endswith(ext) for ext in static_extensions):
+        # 检查路径是否以静态资源扩展名结尾
+        path_lower = path.lower()
+        if any(path_lower.endswith(ext) for ext in static_extensions):
             file_path = os.path.join(frontend_dist, path)
             if os.path.exists(file_path) and os.path.isfile(file_path):
                 return await file(file_path)
             # 静态文件不存在，返回404
+            logger.debug(f"静态文件不存在: {file_path}")
             return empty(status=404)
         
-        # 所有其他路径（如 /login, /generate 等）返回 index.html
+        # 所有其他路径（如 /login, /generate, /optimize 等）返回 index.html
+        # 让前端 Vue Router 处理路由
         index_path = os.path.join(frontend_dist, 'index.html')
         if os.path.exists(index_path):
+            logger.debug(f"SPA路由返回index.html: {request.path}")
             return await file(index_path)
         
+        logger.warning(f"⚠️  index.html不存在: {index_path}")
         return empty(status=404)
 
 
