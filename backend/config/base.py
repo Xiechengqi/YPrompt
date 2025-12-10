@@ -9,12 +9,9 @@ class BaseConfig(object):
     SECRET_KEY = 'intramirror'
     
     # ==========================================
-    # 数据库配置
+    # 数据库配置（SQLite）
     # ==========================================
-    # 数据库类型: 'sqlite'
-    DB_TYPE = 'sqlite'
-    
-    # SQLite配置
+    # SQLite配置（零配置启动）
     SQLITE_DB_PATH = '../data/yprompt.db'
 
     # ==========================================

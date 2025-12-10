@@ -4,7 +4,10 @@ JWT工具类
 """
 import jwt
 import datetime
-from sanic.log import logger
+import logging
+from config.settings import Config
+
+logger = logging.getLogger(__name__)
 
 
 class JWTUtil:
@@ -15,20 +18,20 @@ class JWTUtil:
     ALGORITHM = 'HS256'
     
     @classmethod
-    def init_app(cls, app):
-        """初始化JWT配置"""
-        cls.SECRET_KEY = app.config.get('SECRET_KEY', 'your-secret-key-change-in-production')
+    def init_app(cls, app=None):
+        """初始化JWT配置（FastAPI）"""
+        cls.SECRET_KEY = getattr(Config, 'SECRET_KEY', 'your-secret-key-change-in-production')
         if cls.SECRET_KEY == 'your-secret-key-change-in-production':
             logger.warning('⚠️  警告: 使用默认SECRET_KEY,生产环境请务必修改配置!')
     
     @classmethod
-    def generate_token(cls, user_id, open_id, expire_hours=24):
+    def generate_token(cls, user_id, username, expire_hours=24):
         """
         生成JWT Token
         
         Args:
             user_id: 用户ID
-            open_id: 飞书用户open_id
+            username: 用户名（替代原来的open_id）
             expire_hours: 过期时间(小时),默认24小时
             
         Returns:
@@ -40,7 +43,7 @@ class JWTUtil:
         try:
             payload = {
                 'user_id': user_id,
-                'open_id': open_id,
+                'username': username,
                 'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=expire_hours),
                 'iat': datetime.datetime.utcnow(),
                 'type': 'access_token'
@@ -112,7 +115,7 @@ class JWTUtil:
         # 使用旧Token中的用户信息生成新Token
         return cls.generate_token(
             payload['user_id'],
-            payload['open_id'],
+            payload.get('username', payload.get('open_id', '')),
             expire_hours
         )
     

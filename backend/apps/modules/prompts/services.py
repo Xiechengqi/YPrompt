@@ -4,7 +4,9 @@
 """
 import json
 import datetime
-from sanic.log import logger
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PromptService:

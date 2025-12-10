@@ -1,4 +1,6 @@
-from sanic.log import logger
+import logging
+
+logger = logging.getLogger(__name__)
 
 class PromptRulesService:
     """用户提示词规则服务"""

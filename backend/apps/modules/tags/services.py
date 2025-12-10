@@ -2,7 +2,9 @@
 标签服务类
 处理标签相关的业务逻辑
 """
-from sanic.log import logger
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TagService:

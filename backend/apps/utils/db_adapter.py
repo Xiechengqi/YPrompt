@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-数据库适配器
-支持 SQLite 数据库
+SQLite 数据库适配器
+仅支持 SQLite 数据库
 """
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
-from sanic.log import logger
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseAdapter(ABC):
@@ -137,26 +139,26 @@ class SQLiteAdapter(DatabaseAdapter):
 
 async def create_database_adapter(db_type: str, config: Dict, app_config: Dict = None) -> DatabaseAdapter:
     """
-    创建数据库适配器
+    创建 SQLite 数据库适配器
     
     Args:
-        db_type: 数据库类型 'sqlite'
-        config: 数据库配置
+        db_type: 数据库类型（仅支持 'sqlite'）
+        config: SQLite 数据库配置 {'path': '数据库文件路径'}
         app_config: 应用配置（可选，用于获取默认管理员账号等配置）
         
     Returns:
-        DatabaseAdapter: 数据库适配器实例
+        DatabaseAdapter: SQLite 数据库适配器实例
     """
-    if db_type == 'sqlite':
-        adapter = SQLiteAdapter(config)
-        await adapter.connect()
-        
-        # 检查是否需要初始化数据库
-        await _initialize_sqlite_if_needed(adapter, app_config)
-        
-        return adapter
-    else:
+    if db_type != 'sqlite':
         raise ValueError(f"不支持的数据库类型: {db_type}，仅支持 'sqlite'")
+    
+    adapter = SQLiteAdapter(config)
+    await adapter.connect()
+    
+    # 检查是否需要初始化数据库
+    await _initialize_sqlite_if_needed(adapter, app_config)
+    
+    return adapter
 
 
 async def _initialize_sqlite_if_needed(adapter: SQLiteAdapter, config: Dict = None):

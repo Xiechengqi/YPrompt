@@ -1,68 +1,101 @@
 """
-认证路由
+认证路由（FastAPI）
 支持本地用户名密码认证
 """
-from sanic import Blueprint
-from sanic.response import json
-from sanic_ext import openapi
-from sanic.log import logger
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from typing import Optional
+import logging
 
+from fastapi import Request
 from apps.utils.jwt_utils import JWTUtil
-from apps.utils.auth_middleware import auth_required
+from apps.utils.auth_middleware import get_current_user, get_current_user_id
+from apps.utils.dependencies import get_db
 from .services import AuthService
-from .models import *
+from config.settings import Config
+
+logger = logging.getLogger(__name__)
+
+# 创建认证路由
+router = APIRouter(prefix='/api/auth', tags=['认证'])
 
 
-# 创建认证蓝图
-auth = Blueprint('auth', url_prefix='/api/auth')
+# ====================================
+# 请求/响应模型
+# ====================================
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    code: int = 200
+    message: str = "登录成功"
+    data: Optional[dict] = None
+
+
+class ErrorResponse(BaseModel):
+    code: int
+    message: str
+
+
+class RefreshTokenResponse(BaseModel):
+    code: int = 200
+    message: str = "刷新成功"
+    data: Optional[dict] = None
+
+
+class UserInfo(BaseModel):
+    id: int
+    name: str
+    username: str
+    avatar: str
+    email: Optional[str] = None
+    auth_type: str
+    is_active: int
+    is_admin: int
+    last_login_time: Optional[str] = None
+    create_time: Optional[str] = None
 
 
 # ====================================
 # 本地用户名密码认证
 # ====================================
 
-@auth.post('/local/login')
-@openapi.summary("本地用户名密码登录")
-@openapi.description("使用用户名和密码登录（用于私有部署）")
-@openapi.body({"application/json": {
-    "username": openapi.String(description="用户名", required=True),
-    "password": openapi.String(description="密码", required=True)
-}})
-@openapi.response(200, {"application/json": LoginResponse}, description="登录成功")
-@openapi.response(400, {"application/json": ErrorResponse}, description="用户名或密码错误")
-async def local_login(request):
+@router.post('/local/login', response_model=LoginResponse)
+async def local_login(request: LoginRequest, fastapi_request: Request, db = Depends(get_db)):
     """
     本地用户名密码登录接口
     
-    用于私有部署场景，无需OAuth认证
+    用于私有部署场景，从环境变量配置的用户信息验证
     """
     try:
-        data = request.json
-        username = data.get('username', '').strip()
-        password = data.get('password', '')
+        username = request.username.strip()
+        password = request.password
         
         # 1. 参数验证
         if not username or not password:
-            return json({
-                'code': 400,
-                'message': '用户名和密码不能为空'
-            })
+            raise HTTPException(
+                status_code=400,
+                detail='用户名和密码不能为空'
+            )
         
         # 2. 验证用户名和密码（从环境变量配置）
-        from config import settings
-        auth_service = AuthService(request.app.ctx.db)
+        auth_service = AuthService(db)
         user = await auth_service.verify_local_user(
             username, 
             password,
-            settings.LOGIN_USERNAME,
-            settings.LOGIN_PASSWORD
+            Config.LOGIN_USERNAME,
+            Config.LOGIN_PASSWORD
         )
         
         if not user:
-            return json({
-                'code': 400,
-                'message': '用户名或密码错误'
-            })
+            raise HTTPException(
+                status_code=400,
+                detail='用户名或密码错误'
+            )
         
         # 3. 生成JWT Token
         token = JWTUtil.generate_token(
@@ -74,10 +107,10 @@ async def local_login(request):
         # 4. 返回响应
         logger.info(f'✅ 本地用户登录成功: username={username}, id={user["id"]}')
         
-        return json({
-            'code': 200,
-            'message': '登录成功',
-            'data': {
+        return LoginResponse(
+            code=200,
+            message='登录成功',
+            data={
                 'token': token,
                 'user': {
                     'id': user['id'],
@@ -89,97 +122,79 @@ async def local_login(request):
                     'last_login_time': str(user.get('last_login_time', ''))
                 }
             }
-        })
+        )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f'❌ 本地登录接口异常: {e}', exc_info=True)
-        return json({
-            'code': 500,
-            'message': f'登录失败: {str(e)}'
-        })
+        raise HTTPException(
+            status_code=500,
+            detail=f'登录失败: {str(e)}'
+        )
 
 
 # ====================================
 # 通用接口
 # ====================================
 
-@auth.post('/refresh')
-@openapi.summary("刷新Token")
-@openapi.description("使用旧Token刷新获取新Token")
-@openapi.secured("BearerAuth")
-@openapi.response(200, {"application/json": RefreshTokenResponse}, description="刷新成功")
-@openapi.response(401, {"application/json": ErrorResponse}, description="Token无效")
-async def refresh_token(request):
+@router.post('/refresh', response_model=RefreshTokenResponse)
+async def refresh_token(
+    current_user: dict = Depends(get_current_user)
+):
     """
     刷新Token接口
     
     通过旧Token生成新Token,延长登录状态
     """
     try:
-        # 获取Authorization头
-        auth_header = request.headers.get('Authorization')
+        # 从依赖获取用户信息
+        user_id = current_user['user_id']
+        username = current_user['username']
         
-        if not auth_header or not auth_header.startswith('Bearer '):
-            return json({
-                'code': 401,
-                'message': '缺少有效的Token'
-            })
+        # 生成新Token
+        new_token = JWTUtil.generate_token(
+            user_id,
+            username,
+            expire_hours=24*7  # 7天有效期
+        )
         
-        old_token = auth_header.split(' ')[1]
-        
-        # 刷新Token
-        new_token = JWTUtil.refresh_token(old_token, expire_hours=24*7)  # 7天有效期
-        
-        if not new_token:
-            return json({
-                'code': 401,
-                'message': 'Token无效或已过期,请重新登录'
-            })
-        
-        return json({
-            'code': 200,
-            'message': '刷新成功',
-            'data': {
-                'token': new_token
-            }
-        })
+        return RefreshTokenResponse(
+            code=200,
+            message='刷新成功',
+            data={'token': new_token}
+        )
         
     except Exception as e:
         logger.error(f'❌ 刷新Token失败: {e}')
-        return json({
-            'code': 500,
-            'message': f'刷新失败: {str(e)}'
-        })
+        raise HTTPException(
+            status_code=500,
+            detail=f'刷新失败: {str(e)}'
+        )
 
 
-@auth.get('/userinfo')
-@auth_required
-@openapi.summary("获取当前用户信息")
-@openapi.description("通过Token获取当前登录用户的详细信息")
-@openapi.secured("BearerAuth")
-@openapi.response(200, {"application/json": {"code": int, "data": UserInfo}}, description="获取成功")
-@openapi.response(401, {"application/json": ErrorResponse}, description="未授权")
-async def get_userinfo(request):
+@router.get('/userinfo', response_model=dict)
+async def get_userinfo(
+    user_id: int = Depends(get_current_user_id),
+    db = Depends(get_db)
+):
     """
     获取当前用户信息接口
     
     需要在请求头中携带有效的JWT Token
     """
     try:
-        # 从认证中间件获取user_id
-        user_id = request.ctx.user_id
-        
         # 查询用户信息
-        auth_service = AuthService(request.app.ctx.db)
+        auth_service = AuthService(db)
         user = await auth_service.get_user_by_id(user_id)
         
         if not user:
-            return json({
-                'code': 404,
-                'message': '用户不存在'
-            })
+            raise HTTPException(
+                status_code=404,
+                detail='用户不存在'
+            )
         
-        return json({
+        return {
             'code': 200,
             'data': {
                 'id': user['id'],
@@ -193,23 +208,22 @@ async def get_userinfo(request):
                 'last_login_time': str(user.get('last_login_time', '')),
                 'create_time': str(user.get('create_time', ''))
             }
-        })
+        }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f'❌ 获取用户信息失败: {e}')
-        return json({
-            'code': 500,
-            'message': f'获取失败: {str(e)}'
-        })
+        raise HTTPException(
+            status_code=500,
+            detail=f'获取失败: {str(e)}'
+        )
 
 
-@auth.post('/logout')
-@auth_required
-@openapi.summary("用户登出")
-@openapi.description("用户登出(客户端需清除本地Token)")
-@openapi.secured("BearerAuth")
-@openapi.response(200, {"application/json": {"code": int, "message": str}}, description="登出成功")
-async def logout(request):
+@router.post('/logout')
+async def logout(
+    current_user: dict = Depends(get_current_user)
+):
     """
     用户登出接口
     
@@ -217,37 +231,28 @@ async def logout(request):
     此接口仅用于记录日志
     """
     try:
-        user_id = request.ctx.user_id
+        user_id = current_user['user_id']
         logger.info(f'📤 用户登出: user_id={user_id}')
         
-        return json({
+        return {
             'code': 200,
             'message': '登出成功'
-        })
+        }
         
     except Exception as e:
         logger.error(f'❌ 登出接口异常: {e}')
-        return json({
-            'code': 500,
-            'message': f'登出失败: {str(e)}'
-        })
+        raise HTTPException(
+            status_code=500,
+            detail=f'登出失败: {str(e)}'
+        )
 
 
 # ====================================
 # 系统信息接口
 # ====================================
 
-@auth.get('/config')
-@openapi.summary("获取认证配置")
-@openapi.description("获取系统支持的认证方式和登录用户信息")
-@openapi.response(200, {"application/json": {
-    "code": int,
-    "data": {
-        "local_auth_enabled": openapi.Boolean(description="是否启用本地认证"),
-        "login_username": openapi.String(description="登录用户名（从环境变量）")
-    }
-}})
-async def get_auth_config(request):
+@router.get('/config')
+async def get_auth_config():
     """
     获取认证配置接口
     
@@ -255,18 +260,17 @@ async def get_auth_config(request):
     返回登录用户名用于前端预填充
     """
     try:
-        from config import settings
-        return json({
+        return {
             'code': 200,
             'data': {
                 'local_auth_enabled': True,  # 本地认证始终可用
-                'login_username': settings.LOGIN_USERNAME  # 返回配置的用户名
+                'login_username': Config.LOGIN_USERNAME  # 返回配置的用户名
             }
-        })
+        }
         
     except Exception as e:
         logger.error(f'❌ 获取认证配置失败: {e}')
-        return json({
-            'code': 500,
-            'message': f'获取配置失败: {str(e)}'
-        })
+        raise HTTPException(
+            status_code=500,
+            detail=f'获取配置失败: {str(e)}'
+        )

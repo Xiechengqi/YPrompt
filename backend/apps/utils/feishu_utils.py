@@ -2,20 +2,20 @@
 # _*_ coding:utf-8 _*_
 
 from apps.utils.http_utils import HTTPX
-from sanic.response import json_dumps
 from config.settings import Config
 import requests
 import json
 from jinja2 import Template
 import time
-from sanic.log import logger
+import logging
 from urllib import parse
 import hmac
 import base64
 import hashlib
 import queue
 import os
-import logging
+
+logger = logging.getLogger(__name__)
 
 # 接口频率限制
 # 1000 次/分钟、50 次/秒

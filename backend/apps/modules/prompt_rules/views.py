@@ -1,88 +1,96 @@
-from sanic import Blueprint
-from sanic.response import json
-from sanic_ext import openapi
-from apps.utils.auth_middleware import auth_required
+"""
+提示词规则路由（FastAPI）
+"""
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
+import logging
+
+from apps.utils.auth_middleware import get_current_user_id
+from apps.utils.dependencies import get_db
 from .services import PromptRulesService
-from .models import PromptRulesModel, PromptRulesResponse
 
-prompt_rules = Blueprint('prompt_rules', url_prefix='/api/prompt-rules')
+logger = logging.getLogger(__name__)
 
-@prompt_rules.get('/')
-@auth_required
-@openapi.summary("获取用户的提示词规则")
-@openapi.description("获取当前登录用户的自定义提示词规则")
-@openapi.response(200, {"application/json": PromptRulesResponse})
-async def get_rules(request):
+router = APIRouter(prefix='/api/prompt-rules', tags=['提示词规则'])
+
+
+class PromptRulesModel(BaseModel):
+    system_prompt: Optional[str] = None
+    user_prompt: Optional[str] = None
+    rules: Optional[Dict[str, Any]] = None
+
+
+class PromptRulesResponse(BaseModel):
+    code: int = 200
+    data: Optional[PromptRulesModel] = None
+    message: Optional[str] = None
+
+
+@router.get('/', response_model=PromptRulesResponse)
+async def get_rules(
+    user_id: int = Depends(get_current_user_id),
+    db = Depends(get_db)
+):
     """获取用户的提示词规则"""
     try:
-        user_id = request.ctx.user_id
-        service = PromptRulesService(request.app.ctx.db)
+        service = PromptRulesService(db)
         rules = await service.get_user_rules(user_id)
         
         if not rules:
-            return json({
-                'code': 200,
-                'data': None,
-                'message': '用户暂无自定义规则'
-            })
+            return PromptRulesResponse(
+                code=200,
+                data=None,
+                message='用户暂无自定义规则'
+            )
         
-        return json({
-            'code': 200,
-            'data': rules
-        })
+        return PromptRulesResponse(
+            code=200,
+            data=PromptRulesModel(**rules)
+        )
         
     except Exception as e:
-        return json({
-            'code': 500,
-            'message': f'获取提示词规则失败: {str(e)}'
-        }, status=500)
+        logger.error(f'❌ 获取提示词规则失败: {e}', exc_info=True)
+        raise HTTPException(status_code=500, detail=f'获取提示词规则失败: {str(e)}')
 
-@prompt_rules.post('/')
-@auth_required
-@openapi.summary("保存用户的提示词规则")
-@openapi.description("保存或更新当前登录用户的自定义提示词规则")
-@openapi.body({"application/json": PromptRulesModel})
-@openapi.response(200, {"application/json": PromptRulesResponse})
-async def save_rules(request):
+
+@router.post('/', response_model=PromptRulesResponse)
+async def save_rules(
+    rules_data: PromptRulesModel,
+    user_id: int = Depends(get_current_user_id),
+    db = Depends(get_db)
+):
     """保存用户的提示词规则"""
     try:
-        user_id = request.ctx.user_id
-        rules_data = request.json
+        service = PromptRulesService(db)
+        saved_rules = await service.save_user_rules(user_id, rules_data.dict(exclude_none=True))
         
-        service = PromptRulesService(request.app.ctx.db)
-        saved_rules = await service.save_user_rules(user_id, rules_data)
-        
-        return json({
-            'code': 200,
-            'data': saved_rules,
-            'message': '保存成功'
-        })
+        return PromptRulesResponse(
+            code=200,
+            data=PromptRulesModel(**saved_rules),
+            message='保存成功'
+        )
         
     except Exception as e:
-        return json({
-            'code': 500,
-            'message': f'保存提示词规则失败: {str(e)}'
-        }, status=500)
+        logger.error(f'❌ 保存提示词规则失败: {e}', exc_info=True)
+        raise HTTPException(status_code=500, detail=f'保存提示词规则失败: {str(e)}')
 
-@prompt_rules.delete('/')
-@auth_required
-@openapi.summary("删除用户的提示词规则")
-@openapi.description("删除当前登录用户的自定义提示词规则，恢复使用默认规则")
-@openapi.response(200, {"application/json": dict})
-async def delete_rules(request):
+
+@router.delete('/')
+async def delete_rules(
+    user_id: int = Depends(get_current_user_id),
+    db = Depends(get_db)
+):
     """删除用户的提示词规则（重置为默认）"""
     try:
-        user_id = request.ctx.user_id
-        service = PromptRulesService(request.app.ctx.db)
+        service = PromptRulesService(db)
         await service.delete_user_rules(user_id)
         
-        return json({
+        return {
             'code': 200,
             'message': '已重置为默认规则'
-        })
+        }
         
     except Exception as e:
-        return json({
-            'code': 500,
-            'message': f'删除提示词规则失败: {str(e)}'
-        }, status=500)
+        logger.error(f'❌ 删除提示词规则失败: {e}', exc_info=True)
+        raise HTTPException(status_code=500, detail=f'删除提示词规则失败: {str(e)}')

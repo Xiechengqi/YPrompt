@@ -4,8 +4,7 @@ from config import cf
 from config.base import BaseConfig
 
 class Config(BaseConfig):
-    # 数据库配置（优先使用环境变量）
-    DB_TYPE = os.getenv('DB_TYPE') or (cf.DB_TYPE if hasattr(cf, 'DB_TYPE') else 'sqlite')
+    # SQLite数据库配置（优先使用环境变量）
     SQLITE_DB_PATH = os.getenv('SQLITE_DB_PATH') or (cf.SQLITE_DB_PATH if hasattr(cf, 'SQLITE_DB_PATH') else '../data/yprompt.db')
 
     # JWT配置（优先使用环境变量）

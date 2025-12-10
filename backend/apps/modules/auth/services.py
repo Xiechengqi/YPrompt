@@ -4,8 +4,10 @@
 支持: 本地用户名密码认证
 """
 import datetime
-from sanic.log import logger
+import logging
 from apps.utils.password_utils import PasswordUtil
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:

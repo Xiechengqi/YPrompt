@@ -2,13 +2,13 @@
 
 ## 项目概述
 
-YPrompt 是一个完整的提示词管理系统，包含前端（Vue 3）和后端（Sanic），提供基于 AI 对话的提示词生成、优化、版本管理和个人提示词库功能。系统支持本地用户名密码认证、SQLite 数据库，支持桌面端和移动端响应式布局。
+YPrompt 是一个完整的提示词管理系统，包含前端（Vue 3）和后端（FastAPI），提供基于 AI 对话的提示词生成、优化、版本管理和个人提示词库功能。系统支持本地用户名密码认证、SQLite 数据库，支持桌面端和移动端响应式布局。
 
 **主要功能**:
 - 🤖 AI 引导式需求收集与提示词生成
 - 📝 提示词优化与质量分析（系统提示词 + 用户提示词）
 - 📚 个人提示词库管理（收藏、标签、版本控制）
-- 🔐 双认证方式：Linux.do OAuth 2.0 + 本地用户名密码
+- 🔐 本地用户名密码认证（从环境变量配置）
 - 💾 SQLite 数据库（默认，零配置）
 - 📱 响应式设计（桌面端侧边栏 + 移动端底部导航）
 
@@ -24,11 +24,12 @@ YPrompt 是一个完整的提示词管理系统，包含前端（Vue 3）和后�
 - **Markdown**: Marked 16.3
 
 ### 后端 (backend/)
-- **框架**: Sanic 23.12.1 (异步高性能)
-- **数据库**: SQLite 3（aiosqlite）
-- **认证**: Linux.do OAuth 2.0 + 本地认证 + JWT (PyJWT 2.8.0)
+- **框架**: FastAPI 0.109.0 (现代高性能异步Web框架)
+- **服务器**: Uvicorn 0.27.0 (ASGI服务器)
+- **数据库**: SQLite 3（aiosqlite，零配置）
+- **认证**: 本地用户名密码认证 + JWT (PyJWT 2.8.0)
 - **密码加密**: bcrypt 4.1.2
-- **API文档**: Sanic-Ext 23.12.0 (OpenAPI/Swagger)
+- **API文档**: FastAPI 内置 (Swagger UI + ReDoc)
 - **HTTP客户端**: requests 2.31.0 + httpx 0.25.2
 
 ## 项目结构
@@ -105,7 +106,6 @@ YPrompt/
     │       ├── auth_middleware.py  # JWT认证中间件
     │       ├── db_adapter.py       # 数据库适配器（SQLite）
     │       ├── db_utils.py         # 数据库连接管理
-    │       ├── linux_do_oauth.py   # Linux.do OAuth封装
     │       ├── password_utils.py   # 密码工具（加密、验证）
     │       ├── http_utils.py       # HTTP工具
     │       └── jwt_utils.py        # JWT工具类
@@ -174,45 +174,33 @@ python run.py
 
 ### 1. 认证模块 (auth)
 
-**技术方案**: 双认证方式 + JWT Token
+**技术方案**: 本地用户名密码认证 + JWT Token
 
 **认证方式**:
 
-1. **Linux.do OAuth 2.0** (公共部署推荐)
-   - 前端获取Linux.do授权码 (code)
-   - 后端通过code调用Linux.do API获取用户信息
-   - 老用户: 直接更新登录时间
-   - 新用户: 创建用户记录
-   - 生成JWT Token (7天有效期)
-
-2. **本地用户名密码** (私有部署推荐)
+**本地用户名密码认证** (从环境变量配置)
    - 用户名密码登录（bcrypt加密）
-   - 支持用户注册（可配置是否允许）
+   - 通过环境变量配置登录用户信息
    - 默认管理员账号：admin / admin123
-   - 密码强度验证（至少8字符，包含字母和数字）
+   - 仅支持环境变量配置的单一用户登录
 
 **关键文件**:
-- 后端: `apps/modules/auth/views.py` - 认证API（双认证支持）
-- 后端: `apps/utils/linux_do_oauth.py` - Linux.do OAuth封装
+- 后端: `apps/modules/auth/views.py` - 认证API
 - 后端: `apps/utils/password_utils.py` - 密码加密和验证
 - 后端: `apps/utils/jwt_utils.py` - JWT生成和验证
 - 后端: `apps/utils/auth_middleware.py` - 认证装饰器
-- 前端: `src/stores/authStore.ts` - 认证状态管理（支持双认证）
+- 前端: `src/stores/authStore.ts` - 认证状态管理
 
 **API端点**:
 ```
-# Linux.do OAuth
-POST   /api/auth/linux-do/login    # Linux.do code登录
-GET    /api/auth/config            # 获取认证配置（包含CLIENT_ID）
-
 # 本地认证
-POST   /api/auth/local/login       # 用户名密码登录
-POST   /api/auth/local/register    # 用户注册
+POST /api/auth/local/login # 用户名密码登录
+GET /api/auth/config # 获取认证配置（包含登录用户名）
 
 # 通用接口
-POST   /api/auth/refresh           # 刷新Token
-GET    /api/auth/userinfo          # 获取用户信息
-POST   /api/auth/logout            # 登出
+POST /api/auth/refresh # 刷新Token
+GET /api/auth/userinfo # 获取用户信息
+POST /api/auth/logout # 登出
 ```
 
 ### 2. 提示词模块 (prompts)
@@ -316,10 +304,6 @@ GET    /api/versions/{prompt_id}/compare  # 对比版本
 CREATE TABLE users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   
-  -- Linux.do OAuth字段
-  linux_do_id VARCHAR(64) DEFAULT NULL,
-  linux_do_username VARCHAR(100) DEFAULT NULL,
-  
   -- 本地认证字段
   username VARCHAR(50) DEFAULT NULL,
   password_hash VARCHAR(255) DEFAULT NULL,
@@ -328,7 +312,7 @@ CREATE TABLE users (
   name VARCHAR(100) NOT NULL,
   avatar VARCHAR(500) DEFAULT NULL,
   email VARCHAR(100) DEFAULT NULL,
-  auth_type VARCHAR(10) NOT NULL DEFAULT 'linux_do',  -- linux_do/local
+  auth_type VARCHAR(10) NOT NULL DEFAULT 'local',
   is_active INTEGER NOT NULL DEFAULT 1,
   is_admin INTEGER NOT NULL DEFAULT 0,
   
@@ -336,7 +320,6 @@ CREATE TABLE users (
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   update_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   
-  UNIQUE(linux_do_id),
   UNIQUE(username)
 );
 ```
@@ -417,16 +400,26 @@ Service (services.py)  ← 业务逻辑
 Model (SQLite)       ← 数据访问
 ```
 
-### 蓝图自动发现
+### 路由自动注册
 
-系统自动扫描 `apps/modules/` 下的所有模块，查找与模块名相同的 Blueprint 变量并注册：
+系统通过 `main.py` 自动导入并注册所有模块的路由：
 
 ```python
 # apps/modules/your_module/views.py
-from sanic import Blueprint
+from fastapi import APIRouter
 
-your_module = Blueprint('your_module', url_prefix='/api/your_module')
-# 变量名必须与模块名相同
+router = APIRouter(prefix='/api/your_module', tags=['模块名'])
+
+@router.get('/')
+async def your_endpoint():
+    return {'message': 'Hello'}
+```
+
+然后在 `main.py` 中注册：
+
+```python
+from apps.modules.your_module.views import router as your_module_router
+app.include_router(your_module_router)
 ```
 
 ### 添加新模块
@@ -439,11 +432,10 @@ touch apps/modules/your_module/{__init__.py,models.py,services.py,views.py}
 
 2. **定义数据模型** (models.py)
 ```python
-from sanic_ext import openapi
+from pydantic import BaseModel
 
-@openapi.component
-class YourModel:
-    field1: str = openapi.String(description="字段1")
+class YourModel(BaseModel):
+    field1: str
 ```
 
 3. **实现业务逻辑** (services.py)
@@ -458,18 +450,21 @@ class YourService:
 
 4. **定义API路由** (views.py)
 ```python
-from sanic import Blueprint
-from sanic.response import json
-from apps.utils.auth_middleware import auth_required
+from fastapi import APIRouter, Depends, HTTPException
+from apps.utils.auth_middleware import get_current_user_id
+from apps.utils.dependencies import get_db
 
-your_module = Blueprint('your_module', url_prefix='/api/your_module')
+router = APIRouter(prefix='/api/your_module', tags=['模块名'])
 
-@your_module.get('/<id:int>')
-@auth_required
-async def get_data(request, id):
-    service = YourService(request.app.ctx.db)
+@router.get('/{id}')
+async def get_data(
+    id: int,
+    user_id: int = Depends(get_current_user_id),
+    db = Depends(get_db)
+):
+    service = YourService(db)
     data = await service.get_data(id)
-    return json({'code': 200, 'data': data})
+    return {'code': 200, 'data': data}
 ```
 
 ### 数据库操作
@@ -495,14 +490,16 @@ async with db.transaction():
 ### 认证保护
 
 ```python
-from apps.utils.auth_middleware import auth_required
+from apps.utils.auth_middleware import get_current_user_id
+from apps.utils.dependencies import get_db
 
-@your_bp.get('/protected')
-@auth_required
-async def protected_route(request):
-    user_id = request.ctx.user_id  # 当前用户ID
-    open_id = request.ctx.open_id  # 飞书Open ID
-    return json({'user_id': user_id})
+@router.get('/protected')
+async def protected_route(
+    user_id: int = Depends(get_current_user_id),
+    db = Depends(get_db)
+):
+    # user_id 是当前用户ID
+    return {'user_id': user_id}
 ```
 
 ## 前端开发规范
@@ -535,74 +532,51 @@ async def protected_route(request):
 
 ## 已完成的重大改造
 
-### ✅ 认证改造 - Linux.do OAuth + 本地认证
+### ✅ 认证改造 - 本地用户名密码认证
 
 **✨ 改造成果**:
-- ✅ 已支持Linux.do OAuth 2.0认证
-- ✅ 已支持本地用户名密码认证
+- ✅ 已支持本地用户名密码认证（从环境变量配置）
 - ✅ 密码使用bcrypt加密（12轮salt）
-- ✅ 密码强度验证（至少8字符，包含字母和数字）
-- ✅ 用户名格式验证
-- ✅ 双认证可独立配置和使用
-- ✅ 前端自动检测可用认证方式
+- ✅ 仅支持环境变量配置的单一用户登录
 - ✅ 默认管理员账号自动同步（从配置读取）
 
 **✨ 核心文件**:
-- ✅ `apps/utils/linux_do_oauth.py` - Linux.do OAuth完整实现
 - ✅ `apps/utils/password_utils.py` - 密码加密和验证工具
-- ✅ `apps/modules/auth/views.py` - 双认证API实现
+- ✅ `apps/modules/auth/views.py` - 认证API实现
 - ✅ `apps/modules/auth/services.py` - 用户管理服务
-- ✅ `src/stores/authStore.ts` - 前端双认证支持
-- ✅ `src/views/LoginView.vue` - 登录页面（支持双认证）
+- ✅ `src/stores/authStore.ts` - 前端认证支持
+- ✅ `src/views/LoginView.vue` - 登录页面
 
 **✨ 配置说明**:
 ```python
-# config/base.py
+# config/base.py 或环境变量
 
-# Linux.do OAuth配置（留空则不启用）
-LINUX_DO_CLIENT_ID = ''
-LINUX_DO_CLIENT_SECRET = ''
-LINUX_DO_REDIRECT_URI = ''
-
-# 默认管理员账号（首次启动自动创建）
-DEFAULT_ADMIN_USERNAME = 'admin'
-DEFAULT_ADMIN_PASSWORD = 'admin123'
-DEFAULT_ADMIN_NAME = '管理员'
+# 登录用户配置（从环境变量读取）
+LOGIN_USERNAME = 'admin'
+LOGIN_PASSWORD = 'admin123'
+LOGIN_NAME = '管理员'
 ```
 
-### ✅ 数据库改造 - SQLite + MySQL双支持
+### ✅ 数据库改造 - SQLite 数据库
 
 **✨ 改造成果**:
-- ✅ 数据库适配器模式实现完成
-- ✅ SQLite为默认数据库（零配置启动）
+- ✅ SQLite数据库（零配置启动）
 - ✅ SQLite自动初始化（检测表结构并执行脚本）
 - ✅ 默认管理员账号自动创建和同步
-- ✅ 支持通过配置切换MySQL
 - ✅ 统一的数据库操作接口
 - ✅ 参数化查询（防止SQL注入）
 
 **✨ 核心文件**:
-- ✅ `apps/utils/db_adapter.py` - 数据库适配器实现
+- ✅ `apps/utils/db_adapter.py` - SQLite数据库适配器实现
 - ✅ `apps/utils/db_utils.py` - 数据库连接管理
 - ✅ `migrations/init_sqlite.sql` - SQLite初始化脚本
-- ✅ `migrations/init_mysql.sql` - MySQL初始化脚本（待补充）
 
 **✨ 配置说明**:
 ```python
 # config/base.py
 
-# 数据库类型选择
-DB_TYPE = 'sqlite'  # 或 'mysql'
-
-# SQLite配置（默认）
+# SQLite配置（默认，无需配置）
 SQLITE_DB_PATH = '../data/yprompt.db'
-
-# MySQL配置（可选）
-DB_HOST = 'localhost'
-DB_USER = 'root'
-DB_PASS = ''
-DB_NAME = 'yprompt'
-DB_PORT = 3306
 ```
 
 **✨ SQLite特性**:
@@ -622,7 +596,6 @@ DB_PORT = 3306
    - 完善权限管理系统
 
 2. **数据库优化**:
-   - 补充MySQL初始化脚本
    - 添加数据库迁移工具
    - 优化查询性能
    - 添加数据备份功能
@@ -637,18 +610,8 @@ DB_PORT = 3306
 # ==========================================
 # 数据库配置
 # ==========================================
-# 数据库类型: 'sqlite' 或 'mysql'
-DB_TYPE = 'sqlite'  # 默认SQLite，零配置启动
-
-# SQLite配置
+# SQLite配置（默认，零配置启动）
 SQLITE_DB_PATH = '../data/yprompt.db'
-
-# MySQL配置（如需使用MySQL，将DB_TYPE改为'mysql'）
-DB_HOST = 'localhost'
-DB_USER = 'root'
-DB_PASS = 'your_password'
-DB_NAME = 'yprompt'
-DB_PORT = 3306
 
 # ==========================================
 # JWT配置
@@ -656,13 +619,12 @@ DB_PORT = 3306
 SECRET_KEY = 'your_secret_key_change_in_production'
 
 # ==========================================
-# Linux.do OAuth配置（可选）
+# 登录用户配置（必需）
 # ==========================================
-# 如不需要Linux.do OAuth，留空即可
-# 申请地址: https://connect.linux.do
-LINUX_DO_CLIENT_ID = ''
-LINUX_DO_CLIENT_SECRET = ''
-LINUX_DO_REDIRECT_URI = 'http://localhost:5173/auth/callback'
+# 系统仅支持通过环境变量配置的单一用户登录
+LOGIN_USERNAME = 'admin'
+LOGIN_PASSWORD = 'admin123'
+LOGIN_NAME = '管理员'
 
 # ==========================================
 # 默认管理员账号配置
@@ -779,7 +741,7 @@ python run.py
 
 1. **模块化架构** - 前后端都采用模块化设计，易于扩展
 2. **响应式布局** - 桌面端和移动端自动适配
-3. **蓝图自动发现** - 后端自动注册新模块，无需手动配置
+3. **路由模块化** - 后端使用 FastAPI Router 组织路由，易于扩展
 4. **完善的版本控制** - 提示词版本管理和回滚
 5. **多AI提供商支持** - 抽象设计，易于添加新提供商
 6. **性能优化** - 老用户登录不调用外部API，减少延迟
@@ -793,7 +755,7 @@ python run.py
 - 🚧 **操练场**: 规划中
 
 **基础设施**:
-- ✅ **认证系统**: Linux.do OAuth + 本地认证（双支持）
+- ✅ **认证系统**: 本地用户名密码认证（从环境变量配置）
 - ✅ **数据库**: SQLite（默认）
 - ✅ **版本管理**: 语义化版本 + 完整快照 + 回滚
 - ✅ **响应式布局**: 桌面端侧边栏 + 移动端底部导航
