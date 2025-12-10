@@ -157,10 +157,6 @@ def configure_static_files(sanic_app):
     # 静态资源文件（assets目录）
     sanic_app.static('/assets', os.path.join(frontend_dist, 'assets'))
     
-    # 注意：不再使用通配路由 `/<path:path>`，而是通过404异常处理器来处理SPA路由
-    # 这样可以确保API路由优先匹配，不会被拦截
-    # 静态文件（如favicon.ico等）可以通过404异常处理器处理
-    
     # 根路径
     @sanic_app.route('/')
     async def index(request):
@@ -169,6 +165,34 @@ def configure_static_files(sanic_app):
         if os.path.exists(index_path):
             return await file(index_path)
         return html('<h1>YPrompt</h1><p>前端构建文件未找到，请先构建前端项目。</p>')
+    
+    # SPA路由支持：处理所有非API路径，返回index.html
+    # 注意：这个路由必须在蓝图（API路由）之后注册，确保API路由优先匹配
+    @sanic_app.route('/<path:path>')
+    async def spa_fallback(request, path):
+        """SPA路由回退：所有非API路径返回index.html"""
+        # 确保不拦截API路由（虽然理论上不会，因为蓝图先注册）
+        if request.path.startswith('/api/'):
+            return empty(status=404)
+        
+        # 检查是否是静态资源文件
+        static_extensions = ['.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.ico', 
+                            '.svg', '.woff', '.woff2', '.ttf', '.eot', '.json', '.map',
+                            '.xml', '.txt', '.webmanifest']
+        
+        if any(path.lower().endswith(ext) for ext in static_extensions):
+            file_path = os.path.join(frontend_dist, path)
+            if os.path.exists(file_path) and os.path.isfile(file_path):
+                return await file(file_path)
+            # 静态文件不存在，返回404
+            return empty(status=404)
+        
+        # 所有其他路径（如 /login, /generate 等）返回 index.html
+        index_path = os.path.join(frontend_dist, 'index.html')
+        if os.path.exists(index_path):
+            return await file(index_path)
+        
+        return empty(status=404)
 
 
 
