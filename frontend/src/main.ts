@@ -58,7 +58,7 @@ app.use(pinia)
 app.use(router)
 
 // 路由守卫：未登录跳转到登录页
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to, from, next) => {
   // 动态导入 authStore（需要在 pinia 初始化后）
   const { useAuthStore } = await import('./stores/authStore')
   const authStore = useAuthStore()
@@ -71,8 +71,11 @@ router.beforeEach(async (to, _from, next) => {
   
   // 检查是否已登录
   if (!authStore.isLoggedIn) {
-    // 未登录，跳转到登录页
-    next('/login')
+    // 未登录，重定向到登录页，并保存原始目标路径用于登录后跳转
+    next({
+      path: '/login',
+      query: { redirect: to.fullPath } // 保存原始路径
+    })
     return
   }
   

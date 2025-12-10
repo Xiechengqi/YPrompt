@@ -1,8 +1,14 @@
 <template>
   <div id="app">
-    <!-- 根据屏幕尺寸选择布局 -->
-    <DesktopLayout v-if="!navigationStore.isMobile" />
-    <MobileLayout v-else />
+    <!-- 根据路由判断是否显示布局：登录页和回调页不显示布局 -->
+    <template v-if="shouldShowLayout">
+      <DesktopLayout v-if="!navigationStore.isMobile" />
+      <MobileLayout v-else />
+    </template>
+    <template v-else>
+      <!-- 登录页等公开页面直接显示路由视图，不包含布局 -->
+      <router-view />
+    </template>
     
     <!-- 全局通知容器 -->
     <NotificationContainer />
@@ -10,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNavigationStore } from '@/stores/navigationStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -21,6 +27,13 @@ import NotificationContainer from '@/components/NotificationContainer.vue'
 const router = useRouter()
 const navigationStore = useNavigationStore()
 const authStore = useAuthStore()
+
+// 判断是否应该显示布局（登录页和回调页不显示布局）
+const shouldShowLayout = computed(() => {
+  const currentRoute = router.currentRoute.value
+  // 公开页面（登录页、回调页）不显示布局
+  return !currentRoute.meta.public
+})
 
 // 检测移动端设备
 const checkMobile = () => {

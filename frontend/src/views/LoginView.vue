@@ -382,8 +382,13 @@ const handleLocalLogin = async () => {
     if (success) {
       // 保存记住我设置
       saveRememberedUsername()
-      // 登录成功，跳转到主页
-      router.push('/')
+      // 登录成功，跳转到原始目标路径或主页
+      const redirect = router.currentRoute.value.query.redirect as string
+      if (redirect && redirect !== '/login') {
+        router.push(redirect)
+      } else {
+        router.push('/')
+      }
     } else {
       errorMessage.value = '用户名或密码错误'
     }
